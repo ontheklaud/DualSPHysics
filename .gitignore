@@ -32,3 +32,6 @@ src/lib/vs2022/*.pdb
 src/lib/vs2022/LibDSphMoorDynPlus_*.*
 bin/windows/DualSPHysics*.exe
 bin/linux/DualSPHysics*_linux64
+
+# macOS specific
+.DS_Store
