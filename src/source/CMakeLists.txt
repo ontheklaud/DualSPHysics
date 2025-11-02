@@ -226,7 +226,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
       add_custom_command(
         OUTPUT ${HIP_OBJ}
         COMMAND ${HIP_HIPCC_EXECUTABLE}
-                -O3 -D_WITHMR -D_WITHGPU -D__HIP_PLATFORM_AMD__ -fPIC -std=c++11
+                -O3 -D_WITHMR -D_WITHGPU -D__HIP_PLATFORM_AMD__ -fPIC -std=c++14
                 ${GPU_ARCH_FLAGS}
                 -c ${CMAKE_CURRENT_SOURCE_DIR}/${HIP_SRC}
                 -o ${HIP_OBJ}
