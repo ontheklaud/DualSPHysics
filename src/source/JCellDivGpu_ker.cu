@@ -500,7 +500,8 @@ void LimitsCell(unsigned np,unsigned pini,unsigned cellcode,const unsigned* dcel
   unsigned nblocks=sgrid.x*sgrid.y;
   KerLimitsCell<DIVBSIZE><<<sgrid,DIVBSIZE,smemSize>>>(np,pini,cellcode,dcell,code,aux);
   LimitsCellRedu(cellcode,nblocks,aux,celmin,celmax);
-#ifdef DG_LimitsCell  //:delbeg:
+//:delbeg: DG_LimitsCell debug code disabled - references unavailable variables (velrhop, poscell, check, log)
+/*#ifdef DG_LimitsCell
   char cad[1024];
   sprintf(cad,"LimitsPos_%s> n:%u  pini:%u",(velrhop? "Fluid": "Bound"),np,pini); log->Print(cad);
   float4* poscellh=new float4[np];
@@ -523,7 +524,7 @@ void LimitsCell(unsigned np,unsigned pini,unsigned cellcode,const unsigned* dcel
     sprintf(cad,"LimitsPos> CPU pminh=(%u,%u,%u)  pmaxh=(%u,%u,%u)",pminh.x,pminh.y,pminh.z,pmaxh.x,pmaxh.y,pmaxh.z); log->Print(cad);
     fun::Run_ExceptionStr("Error en LimitsPos()...");
   }
-#endif  //:delend:
+#endif*/  //:delend:
 }
 
 //------------------------------------------------------------------------------

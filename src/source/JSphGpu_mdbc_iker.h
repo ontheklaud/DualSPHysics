@@ -23,6 +23,7 @@
 
 #include "DualSphDef.h"
 #include "JCellDivDataGpu.h"
+#include "JSphGpu_ker.h"
 #include <cuda_runtime_api.h>
 
 /// Implements a set of functions and CUDA kernels for mDBC.

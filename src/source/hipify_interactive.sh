@@ -58,8 +58,32 @@ echo ""
 echo "Scanning for CUDA files..."
 echo ""
 
+# Files to exclude (these are included by JSphGpu_ker.cu)
+EXCLUDE_FILES=(
+    "./JSphGpu_InOut_iker.cu"
+    "./JSphGpu_mdbc_iker.cu"
+    "./JSphGpu_preloop_iker.cu"
+    "./JSphGpu_VRes_iker.cu"
+)
+
 # Find all .cu and .cuh files
-cu_files=($(find . -maxdepth 1 -name "*.cu" -type f | sort))
+all_cu_files=($(find . -maxdepth 1 -name "*.cu" -type f | sort))
+cu_files=()
+
+# Filter out excluded files
+for file in "${all_cu_files[@]}"; do
+    exclude=false
+    for excluded in "${EXCLUDE_FILES[@]}"; do
+        if [ "$file" = "$excluded" ]; then
+            exclude=true
+            break
+        fi
+    done
+    if [ "$exclude" = false ]; then
+        cu_files+=("$file")
+    fi
+done
+
 cuh_files=($(find . -maxdepth 1 -name "*.cuh" -type f | sort))
 
 total_files=$((${#cu_files[@]} + ${#cuh_files[@]}))
@@ -70,6 +94,9 @@ if [ $total_files -eq 0 ]; then
 fi
 
 echo "Found ${#cu_files[@]} .cu files and ${#cuh_files[@]} .cuh files"
+if [ ${#EXCLUDE_FILES[@]} -gt 0 ]; then
+    echo "Excluded: ${#EXCLUDE_FILES[@]} files (included by JSphGpu_ker.cu)"
+fi
 echo "Total: $total_files files to process"
 echo ""
 

@@ -19,6 +19,7 @@
 /// \file JSphGpu_mdbc_iker.cu \brief Implements functions and CUDA kernels for mDBC.
 
 #include "JSphGpu_mdbc_iker.h"
+#include <cfloat>
 
 namespace cusph{
 
