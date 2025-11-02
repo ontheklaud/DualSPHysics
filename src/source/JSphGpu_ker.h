@@ -35,6 +35,12 @@
 
 class JLog2;
 
+//-Constant memory for particle interactions (defined in JSphGpu_ker.cu)
+#ifdef __CUDACC__
+extern __constant__ StCteInteraction CTE;
+#define CTE_AVAILABLE
+#endif
+
 #define SPHBSIZE 256
 
 

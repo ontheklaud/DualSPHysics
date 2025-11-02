@@ -693,8 +693,8 @@ float3 ReduSumFloat3(unsigned ndata,unsigned inidata,const float3* data
     #ifdef DG_curedus_Print
       printf("-=[DG_curedus_ReduSumFloat3]=-\n");
     #endif
-    float dgret=DgReduSumFloat3(ndata,inidata,data);
-    if(ret!=dgret && (fabs(ret.x/dgret.x-1)>0.00001f) || fabs(ret.y/dgret.y-1)>0.00001f) || fabs(ret.z/dgret.z.-1)>0.00001f)){
+    float3 dgret=DgReduSumFloat3(ndata,inidata,data);
+    if((ret.x!=dgret.x || ret.y!=dgret.y || ret.z!=dgret.z) && ((fabs(ret.x/dgret.x-1)>0.00001f) || fabs(ret.y/dgret.y-1)>0.00001f || fabs(ret.z/dgret.z-1)>0.00001f)){
       printf("-=[x %.8E == %.8E   dif:%.8f ]=-\n",ret.x,dgret.x,fabs(ret.x/dgret.x-1));
       printf("-=[y %.8E == %.8E   dif:%.8f ]=-\n",ret.y,dgret.y,fabs(ret.y/dgret.y-1));
       printf("-=[z %.8E == %.8E   dif:%.8f ]=-\n",ret.z,dgret.z,fabs(ret.z/dgret.z-1));

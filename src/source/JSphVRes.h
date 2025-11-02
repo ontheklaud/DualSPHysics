@@ -92,7 +92,8 @@ typedef struct StrGeomVresCpu{
 }StrGeomVresCpu;
   
 
-#ifdef _WITHGPU
+//-GPU structures are also needed when compiling with hipify-clang
+#if defined(_WITHGPU) || defined(__HIPCC__) || defined(__CUDACC__)
   typedef struct StrDataVresGpu{
   //-Info Vres zone data.
   unsigned ntot;
