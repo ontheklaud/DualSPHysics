@@ -56,7 +56,11 @@ void JObjectGpu::RunExceptioonCuda(const std::string& srcfile,int srcline
   ,cudaError_t cuerr,std::string msg)const
 {
   const std::string oid=ObjectId();
+#ifdef __HIP_PLATFORM_AMD__
+  msg=msg+fun::PrintStr(" (HIP error %d (%s)).\n",cuerr,hipGetErrorString(cuerr));
+#else
   msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,cudaGetErrorString(cuerr));
+#endif
   throw JException(srcfile,srcline,(oid.empty()? classname: oid),method,msg,"");
 }
 
@@ -68,10 +72,17 @@ void JObjectGpu::CheckCudaErroor(const std::string& srcfile,int srcline
   ,const std::string& classname,const std::string& method
   ,std::string msg)const
 {
+#ifdef __HIP_PLATFORM_AMD__
+  hipError_t cuerr=hipGetLastError();
+  const std::string oid=ObjectId();
+  if(cuerr!=hipSuccess)RunExceptioonCuda(srcfile,srcline
+    ,(oid.empty()? ClassName: oid),method,cuerr,msg);
+#else
   cudaError_t cuerr=cudaGetLastError();
   const std::string oid=ObjectId();
   if(cuerr!=cudaSuccess)RunExceptioonCuda(srcfile,srcline
     ,(oid.empty()? ClassName: oid),method,cuerr,msg);
+#endif
 }
 
 

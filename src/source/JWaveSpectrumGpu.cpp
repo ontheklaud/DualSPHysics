@@ -46,11 +46,18 @@ JWaveSpectrumGpu::JWaveSpectrumGpu(){
 void JWaveSpectrumGpu::FreeMemoryGpu(){
   MemGpuFixed=0;
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    if(Order2CoefsEtag)hipFree(Order2CoefsEtag);   Order2CoefsEtag=NULL;
+    if(Order2CoefsDnmg)hipFree(Order2CoefsDnmg);   Order2CoefsDnmg=NULL;
+    if(Order2CoefsPosg)hipFree(Order2CoefsPosg);   Order2CoefsPosg=NULL;
+    if(Order2Auxg)     hipFree(Order2Auxg);        Order2Auxg=NULL;
+#else
     if(Order2CoefsEtag)cudaFree(Order2CoefsEtag);   Order2CoefsEtag=NULL;
     if(Order2CoefsDnmg)cudaFree(Order2CoefsDnmg);   Order2CoefsDnmg=NULL;
     if(Order2CoefsPosg)cudaFree(Order2CoefsPosg);   Order2CoefsPosg=NULL;
     if(Order2Auxg)     cudaFree(Order2Auxg);        Order2Auxg=NULL;
-  #endif 
+#endif
+  #endif
 }
 
 //==============================================================================
@@ -61,14 +68,30 @@ void JWaveSpectrumGpu::AllocMemoryGpu(unsigned sizewavecoefs){
   #ifdef _WITHGPU
     MemGpuFixed=0;
     size_t m=sizeof(double4)*sizewavecoefs;
+#ifdef __HIP_PLATFORM_AMD__
+    hipMalloc((void**)&Order2CoefsEtag,m);     MemGpuFixed+=m;
+#else
     cudaMalloc((void**)&Order2CoefsEtag,m);     MemGpuFixed+=m;
+#endif
     m=sizeof(double)*sizewavecoefs;
+#ifdef __HIP_PLATFORM_AMD__
+    hipMalloc((void**)&Order2CoefsDnmg,m);     MemGpuFixed+=m;
+#else
     cudaMalloc((void**)&Order2CoefsDnmg,m);     MemGpuFixed+=m;
+#endif
     m=sizeof(double2)*sizewavecoefs;
+#ifdef __HIP_PLATFORM_AMD__
+    hipMalloc((void**)&Order2CoefsPosg,m);     MemGpuFixed+=m;
+#else
     cudaMalloc((void**)&Order2CoefsPosg,m);     MemGpuFixed+=m;
+#endif
     m=sizeof(double)*cuwave2::GetSizeAux(sizewavecoefs);
-    //m=sizeof(double)*SizeWaveCoefs*2+512; 
+    //m=sizeof(double)*SizeWaveCoefs*2+512;
+#ifdef __HIP_PLATFORM_AMD__
+    hipMalloc((void**)&Order2Auxg,m);          MemGpuFixed+=m;
+#else
     cudaMalloc((void**)&Order2Auxg,m);          MemGpuFixed+=m;
+#endif
   #endif
 }
 
@@ -79,9 +102,15 @@ void JWaveSpectrumGpu::CopyCoefs(unsigned sizewavecoefs,const tdouble4* d4
   ,const double* d1,const tdouble2* d2)
 {
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(Order2CoefsEtag,d4,sizeof(double4)*sizewavecoefs,hipMemcpyHostToDevice);
+    hipMemcpy(Order2CoefsDnmg,d1,sizeof(double) *sizewavecoefs,hipMemcpyHostToDevice);
+    hipMemcpy(Order2CoefsPosg,d2,sizeof(double2)*sizewavecoefs,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(Order2CoefsEtag,d4,sizeof(double4)*sizewavecoefs,cudaMemcpyHostToDevice);
     cudaMemcpy(Order2CoefsDnmg,d1,sizeof(double) *sizewavecoefs,cudaMemcpyHostToDevice);
     cudaMemcpy(Order2CoefsPosg,d2,sizeof(double2)*sizewavecoefs,cudaMemcpyHostToDevice);
+#endif
   #endif
 }
 

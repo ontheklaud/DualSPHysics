@@ -32,9 +32,15 @@ namespace fcuda{
 void CheckCudaErroorFun(const char* const file,int const line
   ,const char* const fun,std::string msg)
 {
+#ifdef __HIP_PLATFORM_AMD__
+  const hipError_t cuerr=hipGetLastError();
+  if(cuerr!=hipSuccess){
+    msg=msg+fun::PrintStr(" (HIP error %d (%s)).\n",cuerr,hipGetErrorString(cuerr));
+#else
   const cudaError_t cuerr=cudaGetLastError();
   if(cuerr!=cudaSuccess){
-    msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,cudaGetErrorString(cuerr)); 
+    msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,cudaGetErrorString(cuerr));
+#endif
     fun::RunExceptioonFun(file,line,fun,msg);
   }
 }
@@ -42,7 +48,11 @@ void CheckCudaErroorFun(const char* const file,int const line
 //==============================================================================
 /// Returns information about selected GPU (code from deviceQuery example).
 //==============================================================================
+#ifdef __HIP_PLATFORM_AMD__
+inline bool IsGPUCapableP2P(const hipDeviceProp_t* pProp){
+#else
 inline bool IsGPUCapableP2P(const cudaDeviceProp* pProp){
+#endif
 #ifdef _WIN32
     return(pProp->major>=2 && pProp->tccDriver? true: false);
 #else
@@ -54,10 +64,17 @@ inline bool IsGPUCapableP2P(const cudaDeviceProp* pProp){
 /// Returns name about selected GPU.
 //==============================================================================
 std::string GetCudaDeviceName(int gid){
+#ifdef __HIP_PLATFORM_AMD__
+  hipSetDevice(gid);
+  Check_CudaErroorFun("Failed selecting device.");
+  hipDeviceProp_t deviceProp;
+  hipGetDeviceProperties(&deviceProp,gid);
+#else
   cudaSetDevice(gid);
   Check_CudaErroorFun("Failed selecting device.");
   cudaDeviceProp deviceProp;
   cudaGetDeviceProperties(&deviceProp,gid);
+#endif
   Check_CudaErroorFun("Failed getting selected device info.");
   return(deviceProp.name);
 }
@@ -66,10 +83,17 @@ std::string GetCudaDeviceName(int gid){
 /// Returns information about selected GPU (code from deviceQuery example).
 //==============================================================================
 StGpuInfo GetCudaDeviceInfo(int gid){
+#ifdef __HIP_PLATFORM_AMD__
+  hipSetDevice(gid);
+  Check_CudaErroorFun("Failed selecting device.");
+  hipDeviceProp_t deviceProp;
+  hipGetDeviceProperties(&deviceProp,gid);
+#else
   cudaSetDevice(gid);
   Check_CudaErroorFun("Failed selecting device.");
   cudaDeviceProp deviceProp;
   cudaGetDeviceProperties(&deviceProp,gid);
+#endif
   Check_CudaErroorFun("Failed getting selected device info.");
   StGpuInfo g;
   g.id=gid;
@@ -113,12 +137,20 @@ StGpuInfo GetCudaDeviceInfo(int gid){
   //:printf("------->Check possibility for peer access.\n");
   if(g.rdma){
     int deviceCount=0;
+#ifdef __HIP_PLATFORM_AMD__
+    hipGetDeviceCount(&deviceCount);
+#else
     cudaGetDeviceCount(&deviceCount);
+#endif
     Check_CudaErroorFun("Failed getting devices info.");
     g.countp2pto=0;
     for(int cg=0;cg<deviceCount;cg++)if(cg!=gid){
       int can_access_peer;
+#ifdef __HIP_PLATFORM_AMD__
+      hipDeviceCanAccessPeer(&can_access_peer,gid,cg);
+#else
       cudaDeviceCanAccessPeer(&can_access_peer,gid,cg);
+#endif
       if(can_access_peer){
         if(g.countp2pto>=g.sizep2pto)fun::Run_ExceptioonFun("StGpuInfo.sizep2pto is not enough.");
         g.p2pto[g.countp2pto++]=cg;
@@ -127,7 +159,11 @@ StGpuInfo GetCudaDeviceInfo(int gid){
     int count2=0;
     for(int cg=0;cg<deviceCount;cg++)if(cg!=gid){
       int can_access_peer;
+#ifdef __HIP_PLATFORM_AMD__
+      hipDeviceCanAccessPeer(&can_access_peer,cg,gid);
+#else
       cudaDeviceCanAccessPeer(&can_access_peer,cg,gid);
+#endif
       if(can_access_peer && (count2>=g.sizep2pto || g.p2pto[count2++]!=cg))
         fun::Run_ExceptioonFun("There is no agreement between to and from peer access.");
     }
@@ -143,17 +179,30 @@ int GetCudaDevicesInfo(std::vector<std::string>* gpuinfo
 {
   if(gpuinfo)gpuinfo->push_back("[CUDA Capable device(s)]");
   int deviceCount=0;
+#ifdef __HIP_PLATFORM_AMD__
+  hipGetDeviceCount(&deviceCount);
+#else
   cudaGetDeviceCount(&deviceCount);
+#endif
   Check_CudaErroorFun("Failed getting devices info.");
   if(gpuinfo){
     if(!deviceCount)gpuinfo->push_back("  There are no available device(s) that support CUDA");
     else gpuinfo->push_back(fun::PrintStr("  Detected %d CUDA Capable device(s)",deviceCount));
   }
+#ifdef __HIP_PLATFORM_AMD__
+  int gid0=-10; hipGetDevice(&gid0);
+#else
   int gid0=-10; cudaGetDevice(&gid0);
+#endif
   //-Driver information.
   int driverVersion=0,runtimeVersion=0;
+#ifdef __HIP_PLATFORM_AMD__
+  hipDriverGetVersion(&driverVersion);
+  hipRuntimeGetVersion(&runtimeVersion);
+#else
   cudaDriverGetVersion(&driverVersion);
   cudaRuntimeGetVersion(&runtimeVersion);
+#endif
   if(gpuinfo)gpuinfo->push_back(fun::PrintStr("  CUDA Driver Version / Runtime Version: %d.%d / %d.%d"
     ,driverVersion/1000,(driverVersion%100)/10,runtimeVersion/1000,(runtimeVersion%100)/10));
   //-Devices information.
@@ -261,7 +310,11 @@ int _ConvertSMVer2Cores(int major, int minor){
 //==============================================================================
 size_t Malloc(byte** ptr,unsigned count){
   const size_t size=sizeof(byte)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -270,7 +323,11 @@ size_t Malloc(byte** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(word** ptr,unsigned count){
   const size_t size=sizeof(word)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -279,7 +336,11 @@ size_t Malloc(word** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(ushort2** ptr,unsigned count){
   const size_t size=sizeof(ushort2)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -518,7 +579,11 @@ byte* ToHostByte(unsigned pini,unsigned n,const byte* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     byte* v=new byte[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(byte)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(byte)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -535,7 +600,11 @@ word* ToHostWord(unsigned pini,unsigned n,const word* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     word* v=new word[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(word)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(word)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -552,7 +621,11 @@ ushort2* ToHostWord2(unsigned pini,unsigned n,const ushort2* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     ushort2* v=new ushort2[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(ushort2)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(ushort2)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -569,7 +642,11 @@ ushort4* ToHostWord4(unsigned pini,unsigned n,const ushort4* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     ushort4* v=new ushort4[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(ushort4)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(ushort4)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -586,7 +663,11 @@ int* ToHostInt(unsigned pini,unsigned n,const int* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     int* v=new int[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(int)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(int)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -603,7 +684,11 @@ unsigned* ToHostUint(unsigned pini,unsigned n,const unsigned* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     unsigned* v=new unsigned[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(unsigned)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(unsigned)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -620,7 +705,11 @@ tint2* ToHostInt2(unsigned pini,unsigned n,const int2* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     tint2* v=new tint2[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(tint2)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(tint2)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -637,7 +726,11 @@ tint3* ToHostInt3(unsigned pini,unsigned n,const int3* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     tint3* v=new tint3[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(tint3)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(tint3)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -654,7 +747,11 @@ float* ToHostFloat(unsigned pini,unsigned n,const float* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     float* v=new float[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(float)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(float)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -671,7 +768,11 @@ tfloat3* ToHostFloat3(unsigned pini,unsigned n,const float3* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     tfloat3* v=new tfloat3[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(tfloat3)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(tfloat3)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -688,7 +789,11 @@ tfloat4* ToHostFloat4(unsigned pini,unsigned n,const float4* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     tfloat4* v=new tfloat4[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(tfloat4)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(tfloat4)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -705,7 +810,11 @@ double* ToHostDouble(unsigned pini,unsigned n,const double* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     double* v=new double[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(double)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(double)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
@@ -722,7 +831,11 @@ tdouble2* ToHostDouble2(unsigned pini,unsigned n,const double2* vg){
   Check_CudaErroorFun("At the beginning.");
   try{
     tdouble2* v=new tdouble2[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(v,vg+pini,sizeof(tdouble2)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(v,vg+pini,sizeof(tdouble2)*n,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroorFun("After cudaMemcpy().");
     return(v);
   }
