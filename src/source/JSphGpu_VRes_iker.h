@@ -12,6 +12,7 @@
 #include "JSphGpu_ker.h"
 #ifdef __HIP_PLATFORM_AMD__
 #include <hip/hip_runtime.h>
+typedef hipStream_t cudaStream_t;
 #else
 #include <cuda_runtime_api.h>
 #endif

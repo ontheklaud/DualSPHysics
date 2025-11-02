@@ -249,8 +249,13 @@ void JDsPartMotionSave::SaveDataExtra(){
 /// Free GPU memory.
 //==============================================================================
 void JDsPartMotionSave::ResetDataGpu(){
+#ifdef __HIP_PLATFORM_AMD__
+  if(IdpRefg)hipFree(IdpRefg); IdpRefg=NULL;
+  if(PosRefg)hipFree(PosRefg); PosRefg=NULL;
+#else
   if(IdpRefg)cudaFree(IdpRefg); IdpRefg=NULL;
   if(PosRefg)cudaFree(PosRefg); PosRefg=NULL;
+#endif
 }
 //==============================================================================
 /// Configure data for GPU execution.
@@ -263,8 +268,13 @@ void JDsPartMotionSave::ConfigDataGpu(){
   fcuda::Malloc(&PosRefg,PsCount);
   fcuda::Check_CudaErroorFun("Memory allocation.");
   //-Copy data to GPU memory.
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(IdpRefg,IdpRef,sizeof(unsigned)*PsCount,hipMemcpyHostToDevice);
+  hipMemset(PosRefg,0,sizeof(tdouble3)*PsCount);
+#else
   cudaMemcpy(IdpRefg,IdpRef,sizeof(unsigned)*PsCount,cudaMemcpyHostToDevice);
   cudaMemset(PosRefg,0,sizeof(tdouble3)*PsCount);
+#endif
   fcuda::Check_CudaErroorFun("Copy to GPU memory.");
 }
 
@@ -277,7 +287,11 @@ void JDsPartMotionSave::LoadPosRefGpu(double timestep,unsigned step,unsigned np
   if(LastStep!=step || LastTimestep!=timestep){
     if(IdpRefg==NULL)ConfigDataGpu();
     cusph::LoadPosRef(PsCount,CaseNfixed,np,posxy,posz,ridpmot,IdpRefg,PosRefg);
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(PosRef,PosRefg,sizeof(tdouble3)*PsCount,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(PosRef,PosRefg,sizeof(tdouble3)*PsCount,cudaMemcpyDeviceToHost);
+#endif
     LastStep=step;
     LastTimestep=timestep;
   }

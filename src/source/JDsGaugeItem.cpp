@@ -66,7 +66,11 @@ void JGaugeItem::RunExceptioonCuda(const std::string& srcfile,int srcline
   ,const std::string& classname,const std::string& method
   ,cudaError_t cuerr,std::string msg)const
 {
+#ifdef __HIP_PLATFORM_AMD__
+  msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,hipGetErrorString(cuerr));
+#else
   msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,cudaGetErrorString(cuerr));
+#endif
   throw JException(srcfile,srcline,classname,method,msg,"");
 }
 
@@ -78,8 +82,13 @@ void JGaugeItem::CheckCudaErroor(const std::string& srcfile,int srcline
   ,const std::string& classname,const std::string& method
   ,std::string msg)const
 {
+#ifdef __HIP_PLATFORM_AMD__
+  cudaError_t cuerr=hipGetLastError();
+  if(cuerr!=hipSuccess)RunExceptioonCuda(srcfile,srcline,classname,method,cuerr,msg);
+#else
   cudaError_t cuerr=cudaGetLastError();
   if(cuerr!=cudaSuccess)RunExceptioonCuda(srcfile,srcline,classname,method,cuerr,msg);
+#endif
 }
 #endif
 
@@ -501,7 +510,11 @@ void JGaugeVelocity::FreeGpuMemory(int id){
   if(id>=GpuCount)Run_Exceptioon("Id is invalid.");
   StGaugeVelDataGpu& aug=AuxDataGpu[id];
   aug.GpuMemory=false;
+#ifdef __HIP_PLATFORM_AMD__
+  if(aug.Resultg)hipFree(aug.Resultg); aug.Resultg=NULL;
+#else
   if(aug.Resultg)cudaFree(aug.Resultg); aug.Resultg=NULL;
+#endif
 }
 
 //==============================================================================
@@ -539,7 +552,11 @@ void JGaugeVelocity::CalculeGpu(const StDataGpu& datagpu){
     //if(!ptout){//-Verify that the point is within domain limits.
     {
       cugauge::Interaction_GaugeVel(CSP,dvd,Point,posxy,posz,code,velrho,aug.Resultg);
+#ifdef __HIP_PLATFORM_AMD__
+      hipMemcpy(&ptvel,aug.Resultg,sizeof(float3),hipMemcpyDeviceToHost);
+#else
       cudaMemcpy(&ptvel,aug.Resultg,sizeof(float3),cudaMemcpyDeviceToHost);
+#endif
       Check_CudaErroor("Failed in velocity calculation.");
     }
     //-Stores calculated result.
@@ -813,7 +830,11 @@ void JGaugeSwl::FreeGpuMemory(int id){
   if(id>=GpuCount)Run_Exceptioon("Id is invalid.");
   StGaugeSwlDataGpu& aug=AuxDataGpu[id];
   aug.GpuMemory=false;
+#ifdef __HIP_PLATFORM_AMD__
+  if(aug.Resultg)hipFree(aug.Resultg); aug.Resultg=NULL;
+#else
   if(aug.Resultg)cudaFree(aug.Resultg); aug.Resultg=NULL;
+#endif
 }
 
 //==============================================================================
@@ -849,7 +870,11 @@ void JGaugeSwl::CalculeGpu(const StDataGpu& datagpu){
       cugauge::Interaction_GaugeSwl(CSP,dvd,Point0,PointDir,PointNp,MassLimit
         ,posxy,posz,code,velrho,aug.Resultg);
       tfloat3 ptsurf=TFloat3(0);
+#ifdef __HIP_PLATFORM_AMD__
+      hipMemcpy(&ptsurf,aug.Resultg,sizeof(float3),hipMemcpyDeviceToHost);
+#else
       cudaMemcpy(&ptsurf,aug.Resultg,sizeof(float3),cudaMemcpyDeviceToHost);
+#endif
       Check_CudaErroor("Failed in Swl calculation.");
       //-Stores calculated result.
       const double& timestep=datagpu.timestep;
@@ -1107,7 +1132,11 @@ void JGaugeMaxZ::FreeGpuMemory(int id){
   if(id>=GpuCount)Run_Exceptioon("Id is invalid.");
   StGaugeMaxzDataGpu& aug=AuxDataGpu[id];
   aug.GpuMemory=false;
+#ifdef __HIP_PLATFORM_AMD__
+  if(aug.Resultg)hipFree(aug.Resultg); aug.Resultg=NULL;
+#else
   if(aug.Resultg)cudaFree(aug.Resultg); aug.Resultg=NULL;
+#endif
 }
 
 //==============================================================================
@@ -1154,7 +1183,11 @@ void JGaugeMaxZ::CalculeGpu(const StDataGpu& datagpu){
       cugauge::Interaction_GaugeMaxz(Point0,maxdist2,dvd
         ,cxini,cxfin,yini,yfin,zini,zfin,posxy,posz,code,aug.Resultg);
     }
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(&ptsurf,aug.Resultg,sizeof(float3),hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(&ptsurf,aug.Resultg,sizeof(float3),cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroor("Failed in MaxZ calculation.");
     //-Stores calculated result.
     if(indomain==2){
@@ -1624,12 +1657,21 @@ void JGaugeMesh::FreeGpuMemory(int id){
   if(id>=GpuCount)Run_Exceptioon("Id is invalid.");
   StGaugeMeshDataGpu& aug=AuxDataGpu[id];
   aug.GpuMemory=false;
+#ifdef __HIP_PLATFORM_AMD__
+  //if(aug.Resultg   )hipFree(aug.Resultg   ); aug.Resultg=NULL;
+  if(aug.DataRhopg )hipFree(aug.DataRhopg ); aug.DataRhopg=NULL;
+  if(aug.DataVxyzg )hipFree(aug.DataVxyzg ); aug.DataVxyzg=NULL;
+  if(aug.DataVdirg )hipFree(aug.DataVdirg ); aug.DataVdirg=NULL;
+  if(aug.DataZsurfg)hipFree(aug.DataZsurfg); aug.DataZsurfg=NULL;
+  if(aug.DataMassg )hipFree(aug.DataMassg ); aug.DataMassg=NULL;
+#else
   //if(aug.Resultg   )cudaFree(aug.Resultg   ); aug.Resultg=NULL;
   if(aug.DataRhopg )cudaFree(aug.DataRhopg ); aug.DataRhopg=NULL;
   if(aug.DataVxyzg )cudaFree(aug.DataVxyzg ); aug.DataVxyzg=NULL;
   if(aug.DataVdirg )cudaFree(aug.DataVdirg ); aug.DataVdirg=NULL;
   if(aug.DataZsurfg)cudaFree(aug.DataZsurfg); aug.DataZsurfg=NULL;
   if(aug.DataMassg )cudaFree(aug.DataMassg ); aug.DataMassg=NULL;
+#endif
 }
 
 //==============================================================================
@@ -1680,10 +1722,17 @@ void JGaugeMesh::CalculeGpu(const StDataGpu& datagpu){
     //-Copy data from GPU memory.
     const unsigned npt12=MeshPts.npt1*MeshPts.npt2;
     const unsigned npt=MeshPts.npt;
+#ifdef __HIP_PLATFORM_AMD__
+    if(aug.DataVxyzg )hipMemcpy(datavxyz ,aug.DataVxyzg ,sizeof(float3)*npt  ,hipMemcpyDeviceToHost);
+    if(aug.DataVdirg )hipMemcpy(datavdir ,aug.DataVdirg ,sizeof(float )*npt  ,hipMemcpyDeviceToHost);
+    if(aug.DataRhopg )hipMemcpy(datarhop ,aug.DataRhopg ,sizeof(float )*npt  ,hipMemcpyDeviceToHost);
+    if(aug.DataZsurfg)hipMemcpy(datazsurf,aug.DataZsurfg,sizeof(float )*npt12,hipMemcpyDeviceToHost);
+#else
     if(aug.DataVxyzg )cudaMemcpy(datavxyz ,aug.DataVxyzg ,sizeof(float3)*npt  ,cudaMemcpyDeviceToHost);
     if(aug.DataVdirg )cudaMemcpy(datavdir ,aug.DataVdirg ,sizeof(float )*npt  ,cudaMemcpyDeviceToHost);
     if(aug.DataRhopg )cudaMemcpy(datarhop ,aug.DataRhopg ,sizeof(float )*npt  ,cudaMemcpyDeviceToHost);
     if(aug.DataZsurfg)cudaMemcpy(datazsurf,aug.DataZsurfg,sizeof(float )*npt12,cudaMemcpyDeviceToHost);
+#endif
     Check_CudaErroor("Failed in GaugeMesh calculation.");
     //-Stores calculated result.
     {
@@ -1934,9 +1983,15 @@ void JGaugeForce::FreeGpuMemory(int id){
   if(id>=GpuCount)Run_Exceptioon("Id is invalid.");
   StGaugeForceDataGpu& aug=AuxDataGpu[id];
   aug.GpuMemory=false;
+#ifdef __HIP_PLATFORM_AMD__
+  if(aug.Resultg )hipFree(aug.Resultg ); aug.Resultg=NULL;
+  if(aug.PartAceg)hipFree(aug.PartAceg); aug.PartAceg=NULL;
+  if(aug.AuxSumg )hipFree(aug.AuxSumg ); aug.AuxSumg=NULL;
+#else
   if(aug.Resultg )cudaFree(aug.Resultg ); aug.Resultg=NULL;
   if(aug.PartAceg)cudaFree(aug.PartAceg); aug.PartAceg=NULL;
   if(aug.AuxSumg )cudaFree(aug.AuxSumg ); aug.AuxSumg=NULL;
+#endif
 }
 
 //==============================================================================
@@ -1976,7 +2031,11 @@ void JGaugeForce::CalculeGpu(const StDataGpu& datagpu){
     if(!aug.GpuMemory)AllocGpuMemory(id);
 
     //-Initializes acceleration array to zero.
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemset(aug.PartAceg,0,sizeof(float3)*Count);
+#else
     cudaMemset(aug.PartAceg,0,sizeof(float3)*Count);
+#endif
     const int n=int(TypeParts==TpPartFixed || TypeParts==TpPartMoving? npbok: np);
     //-Computes acceleration in selected boundary particles.
     cugauge::Interaction_GaugeForce(CSP,dvd,n,IdBegin,Code

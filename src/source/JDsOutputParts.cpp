@@ -992,7 +992,11 @@ void JDsOutputParts::ComputeFilterCpu(unsigned np,const unsigned* idp
 void JDsOutputParts::ComputeFilterGpu(unsigned np,const double2* posxy
   ,const double*posz,const typecode* code,byte*sel)const
 {
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemset(sel,0,sizeof(byte)*np);
+#else
   cudaMemset(sel,0,sizeof(byte)*np);
+#endif
   for(unsigned cf=0;cf<Count();cf++)List[cf]->ComputeFilterGpu(np,posxy,posz,code,sel);
 }
 #endif

@@ -428,7 +428,11 @@ void JSphShifting::InitGpu(unsigned n,unsigned pini,const double2* posxy
   ,const double* posz,float4* shiftposfs,cudaStream_t stm)const
 {
   const unsigned nz=GetCount();
+#ifdef __HIP_PLATFORM_AMD__
+  if(!nz)hipMemsetAsync(shiftposfs+pini,0,sizeof(float4)*n,stm);  //ShiftPosfsg[]=0
+#else
   if(!nz)cudaMemsetAsync(shiftposfs+pini,0,sizeof(float4)*n,stm);  //ShiftPosfsg[]=0
+#endif
   else{
     //-Zones defined by position min-max.
     unsigned cz=0;

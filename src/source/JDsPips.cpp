@@ -298,7 +298,11 @@ void JDsPips::ComputeGpu(unsigned nstep,double tstep,double tsim
     ResultAux=new ullong[SizeResultAux];
   }
   //-Copy final results from GPU memory.
+#ifdef __HIP_PLATFORM_AMD__
+  if(n3size)hipMemcpy(ResultAux,auxmem3,sizeof(ullong)*n3size*4,hipMemcpyDeviceToHost);
+#else
   if(n3size)cudaMemcpy(ResultAux,auxmem3,sizeof(ullong)*n3size*4,cudaMemcpyDeviceToHost);
+#endif
   //-Sum total results.
   ullong totnrf=0,totnrb=0,totncf=0,totncb=0;
   for(unsigned c=0,c4=0;c<n3size;c++){
