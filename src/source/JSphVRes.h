@@ -34,7 +34,11 @@
 #include "JMatrix4.h"
 
 #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 #include "JSphGpu.h"
 #endif

@@ -19,7 +19,11 @@
 /// \file FunctionsMath_iker.h \brief Implements basic/general math functions for the GPU executions.
 
 #include "TypesDef.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 namespace cumath{
 

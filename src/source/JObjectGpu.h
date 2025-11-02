@@ -29,7 +29,11 @@
 
 #include "JObject.h"
 #include "RunExceptionGpuDef.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 #include <string>
 
 

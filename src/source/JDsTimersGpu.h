@@ -22,7 +22,11 @@
 #define _JDsTimersGpu_
 
 #include "JDsTimers.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 /// List of possible timers to define for single GPU executions.
 typedef enum{
@@ -108,7 +112,11 @@ public:
   //==============================================================================
   inline void TmStart(TpTimersGPU ct,bool synchronize){
     if(List[ct].active){
+#ifdef __HIP_PLATFORM_AMD__
+      if(synchronize)hipDeviceSynchronize();
+#else
       if(synchronize)cudaDeviceSynchronize();
+#endif
       List[ct].timer.Start();
     }
   }
@@ -116,10 +124,14 @@ public:
   //==============================================================================
   /// Marks end of timer and accumulates time.
   //==============================================================================
-  inline void TmStop(TpTimersGPU ct,bool synchronize){ 
+  inline void TmStop(TpTimersGPU ct,bool synchronize){
     StDsTimer* t=List+unsigned(ct);
     if(t->active){
+#ifdef __HIP_PLATFORM_AMD__
+      if(synchronize)hipDeviceSynchronize();
+#else
       if(synchronize)cudaDeviceSynchronize();
+#endif
       t->timer.Stop();
       t->time+=t->timer.GetElapsedTimeD();
     }
