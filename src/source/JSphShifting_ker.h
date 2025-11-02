@@ -29,7 +29,11 @@
 #define _JSphShifting_ker_
 
 #include "TypesDef.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 /// Implements a set of functions and CUDA kernels for Shifting correction on GPU.
 namespace cushift{

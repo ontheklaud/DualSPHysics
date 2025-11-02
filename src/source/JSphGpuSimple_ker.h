@@ -22,7 +22,11 @@
 #define _JSphGpuSimple_ker_
 
 #include "DualSphDef.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 /// Implements a set of functions and CUDA kernels for the particle interaction and system update.
 namespace cusphs{

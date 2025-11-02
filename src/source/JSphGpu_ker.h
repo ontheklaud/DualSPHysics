@@ -30,7 +30,11 @@
 #include "DualSphDef.h"
 #include "JSphGpu_cte.h"
 #include "JCellDivDataGpu.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 #include "JSphVRes.h"       //<vs_vrres
 
 class JLog2;

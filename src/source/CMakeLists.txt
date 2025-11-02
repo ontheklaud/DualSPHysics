@@ -2,9 +2,9 @@
 # DualSPHysics GPU/CPU v5.4.316 21-02-2024
 #==================================================================
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.21)
 
-PROJECT(DualSPHysics)
+PROJECT(DualSPHysics LANGUAGES CXX C)
 
 #------------------------------------------------------------------
 # Coupling options
@@ -13,6 +13,7 @@ option(ENABLE_CHRONO "Enable the Chrono Engine library" ON)
 option(ENABLE_WAVEGEN "Enable the WaveGen library" ON)
 option(ENABLE_MOORDYNPLUS "Enable the MoorDynPlus library" ON)
 option(ENABLE_CUDA "Enable the use of CUDA for compilation" ON)
+option(ENABLE_HIP "Enable the use of HIP for AMD GPU compilation" OFF)
 
 #------------------------------------------------------------------
 # Source files
@@ -31,12 +32,14 @@ set(OBCOMMONGPU FunctionsCuda.cpp JObjectGpu.cpp)
 set(OBSPHGPU JArraysGpu.cpp JDebugSphGpu.cpp JCellDivGpu.cpp JSphGpu.cpp JDsGpuInfo.cpp)
 set(OBSPHSINGLEGPU JCellDivGpuSingle.cpp JSphGpuSingle.cpp)
 set(OBCUDA JCellDivGpu_ker.cu JCellDivGpuSingle_ker.cu JDsPips_ker.cu JDsGauge_ker.cu JReduSum_ker.cu JSphShifting_ker.cu JDsAccInput_ker.cu JSphGpu_ker.cu JSphGpuSimple_ker.cu JWaveOrder2_ker.cu)
+set(OBHIP JCellDivGpu_ker.hip.cpp JCellDivGpuSingle_ker.hip.cpp JDsPips_ker.hip.cpp JDsGauge_ker.hip.cpp JReduSum_ker.hip.cpp JSphShifting_ker.hip.cpp JDsAccInput_ker.hip.cpp JSphGpu_ker.hip.cpp JSphGpuSimple_ker.hip.cpp JWaveOrder2_ker.hip.cpp)
 set(OBVRESGPU JSphGpuSingle_VRes.cpp)
 set(OBWAVERZGPU JMLPistonsGpu.cpp JRelaxZonesGpu.cpp)
 set(OBINOUTGPU JSphGpuSingle_InOut.cpp)
 
 # Other Objects
 set(OBWAVERZCUDA JRelaxZone_ker.cu)
+set(OBWAVERZHIP JRelaxZone_ker.hip.cpp)
 set(OBCHRONO JChronoGeoObj.cpp JChronoObjects.cpp)
 set(OBMOORDYNPLUS JDsMooredFloatings.cpp JDsFtForcePoints.cpp)
 set(OBINOUT JSphCpu_InOut.cpp JSphCpuSingle_InOut.cpp JSphInOut.cpp JSphInOutZone.cpp JSphInOutGridData.cpp JSphInOutPoints.cpp JSphInOutVel.cpp JSphInOutVelAwas.cpp JSphInOutZsurf.cpp JSimpleNeigs.cpp)
@@ -70,6 +73,65 @@ if(ENABLE_CUDA)
     message("CUDA Libraries were not found.")
   endif(CUDA_FOUND)
 endif(ENABLE_CUDA)
+
+#------------------------------------------------------------------
+# HIP Flags
+#------------------------------------------------------------------
+if(ENABLE_HIP)
+  # GPU architecture - supports multiple AMD GPUs
+  if(NOT DEFINED GPU_TARGET)
+    # Default: MI250X and MI300X support
+    set(GPU_TARGET "gfx90a;gfx942" CACHE STRING "GPU targets for HIP compilation (semicolon-separated)")
+  endif()
+
+  message("HIP GPU Target(s): ${GPU_TARGET}")
+
+  # Find HIP compiler (hipcc)
+  if(NOT DEFINED HIP_PATH)
+    if(NOT DEFINED ENV{HIP_PATH})
+      set(HIP_PATH "/opt/rocm" CACHE PATH "Path to ROCm installation")
+    else()
+      set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to ROCm installation")
+    endif()
+  endif()
+
+  # Find hipcc compiler
+  find_program(HIP_HIPCC_EXECUTABLE
+    NAMES hipcc
+    PATHS "${HIP_PATH}/bin" "/opt/rocm/bin"
+    DOC "HIP compiler driver"
+  )
+
+  if(HIP_HIPCC_EXECUTABLE)
+    message("Found hipcc: ${HIP_HIPCC_EXECUTABLE}")
+
+    # Get HIP version
+    execute_process(
+      COMMAND ${HIP_HIPCC_EXECUTABLE} --version
+      OUTPUT_VARIABLE HIP_VERSION_OUTPUT
+      ERROR_QUIET
+    )
+    if(HIP_VERSION_OUTPUT MATCHES "HIP version: ([0-9.]+)")
+      set(HIP_VERSION "${CMAKE_MATCH_1}")
+      message("Using HIP version ${HIP_VERSION}")
+    endif()
+  else()
+    message(FATAL_ERROR "hipcc not found. Please install ROCm or set HIP_PATH")
+  endif()
+
+  # Find HIP libraries
+  find_library(HIP_LIBRARY
+    NAMES amdhip64
+    PATHS "${HIP_PATH}/lib"
+    DOC "HIP runtime library"
+  )
+
+  if(HIP_LIBRARY)
+    message("Found HIP library: ${HIP_LIBRARY}")
+  else()
+    message(FATAL_ERROR "HIP library not found")
+  endif()
+endif(ENABLE_HIP)
 
 #------------------------------------------------------------------
 # Static libraries linker path
@@ -136,22 +198,79 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})    
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_executable(DualSPHysics5.4CPU_linux64 ${OBJXML} ${OBJSPHMOTION} ${OBCOMMON} ${OBCOMMONDSPH} ${OBSPH} ${OBSPHSINGLE} ${OBWAVERZ} ${OBWAVERZGPU}  ${OBCHRONO} ${OBMOORDYNPLUS} ${OBINOUT} ${OBMESH} ${OBVRES} ${OBFLEXSTRUC})
-  add_dependencies(DualSPHysics5.4CPU_linux64 LibDSphMoorDynPlus)
+  if(ENABLE_MOORDYNPLUS)
+    add_dependencies(DualSPHysics5.4CPU_linux64 LibDSphMoorDynPlus)
+  endif()
   install(TARGETS	DualSPHysics5.4CPU_linux64 DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-  if (CUDA_FOUND)
+
+  if (CUDA_FOUND AND ENABLE_CUDA)
     cuda_add_executable(DualSPHysics5.4_linux64 ${OBJXML} ${OBJSPHMOTION} ${OBCOMMON} ${OBCOMMONDSPH} ${OBSPH} ${OBSPHSINGLE} ${OBCOMMONGPU} ${OBSPHGPU} ${OBSPHSINGLEGPU} ${OBCUDA} ${OBWAVERZ} ${OBWAVERZCUDA} ${OBCHRONO} ${OBMOORDYNPLUS} ${OBINOUT} ${OBINOUTGPU} ${OBVRESGPU} ${OBWAVERZGPU} ${OBINOUTGPU} ${OBMESH} ${OBVRES} ${OBFLEXSTRUC})
-    add_dependencies(DualSPHysics5.4_linux64 LibDSphMoorDynPlus)
+    if(ENABLE_MOORDYNPLUS)
+      add_dependencies(DualSPHysics5.4_linux64 LibDSphMoorDynPlus)
+    endif()
     install(TARGETS DualSPHysics5.4_linux64 DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-  endif(CUDA_FOUND)
-elseif(MSVC) 
+  endif(CUDA_FOUND AND ENABLE_CUDA)
+
+  if (ENABLE_HIP)
+    # Build offload-arch flags for each GPU target
+    set(GPU_ARCH_FLAGS "")
+    foreach(ARCH IN LISTS GPU_TARGET)
+      list(APPEND GPU_ARCH_FLAGS "--offload-arch=${ARCH}")
+    endforeach()
+
+    # Create object files from HIP sources using hipcc
+    set(HIP_OBJECTS "")
+    foreach(HIP_SRC ${OBHIP} ${OBWAVERZHIP})
+      get_filename_component(HIP_OBJ_NAME ${HIP_SRC} NAME_WE)
+      set(HIP_OBJ "${CMAKE_CURRENT_BINARY_DIR}/${HIP_OBJ_NAME}.o")
+      add_custom_command(
+        OUTPUT ${HIP_OBJ}
+        COMMAND ${HIP_HIPCC_EXECUTABLE}
+                -O3 -D_WITHMR -D_WITHGPU -D__HIP_PLATFORM_AMD__ -fPIC -std=c++11
+                ${GPU_ARCH_FLAGS}
+                -c ${CMAKE_CURRENT_SOURCE_DIR}/${HIP_SRC}
+                -o ${HIP_OBJ}
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${HIP_SRC}
+        COMMENT "Building HIP object ${HIP_OBJ_NAME}.o"
+      )
+      list(APPEND HIP_OBJECTS ${HIP_OBJ})
+    endforeach()
+
+    add_executable(DualSPHysics5.4HIP_linux64 ${OBJXML} ${OBJSPHMOTION} ${OBCOMMON} ${OBCOMMONDSPH} ${OBSPH} ${OBSPHSINGLE} ${OBCOMMONGPU} ${OBSPHGPU} ${OBSPHSINGLEGPU} ${HIP_OBJECTS} ${OBWAVERZ} ${OBCHRONO} ${OBMOORDYNPLUS} ${OBINOUT} ${OBINOUTGPU} ${OBVRESGPU} ${OBWAVERZGPU} ${OBINOUTGPU} ${OBMESH} ${OBVRES} ${OBFLEXSTRUC})
+    set_target_properties(DualSPHysics5.4HIP_linux64 PROPERTIES
+      LINKER_LANGUAGE CXX)
+    if(ENABLE_MOORDYNPLUS)
+      add_dependencies(DualSPHysics5.4HIP_linux64 LibDSphMoorDynPlus)
+    endif()
+    install(TARGETS DualSPHysics5.4HIP_linux64 DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+  endif(ENABLE_HIP)
+elseif(MSVC)
   add_executable(DualSPHysics5.4CPU_win64 ${OBJXML} ${OBJSPHMOTION} ${OBCOMMON} ${OBCOMMONDSPH} ${OBSPH} ${OBSPHSINGLE} ${OBWAVERZ} ${OBWAVERZGPU}  ${OBCHRONO} ${OBMOORDYNPLUS} ${OBINOUT} ${OBMESH} ${OBVRES} ${OBFLEXSTRUC})
-  add_dependencies(DualSPHysics5.4CPU_win64 LibDSphMoorDynPlus)
+  if(ENABLE_MOORDYNPLUS)
+    add_dependencies(DualSPHysics5.4CPU_win64 LibDSphMoorDynPlus)
+  endif()
   install(TARGETS	DualSPHysics5.4CPU_win64 DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-  if (CUDA_FOUND)
+
+  if (CUDA_FOUND AND ENABLE_CUDA)
     cuda_add_executable(DualSPHysics5.4_win64 ${OBJXML} ${OBJSPHMOTION} ${OBCOMMON} ${OBCOMMONDSPH} ${OBSPH} ${OBSPHSINGLE} ${OBCOMMONGPU} ${OBSPHGPU} ${OBSPHSINGLEGPU} ${OBCUDA} ${OBWAVERZ} ${OBWAVERZCUDA} ${OBCHRONO} ${OBMOORDYNPLUS} ${OBINOUT} ${OBINOUTGPU} ${OBVRESGPU} ${OBWAVERZGPU} ${OBINOUTGPU} ${OBMESH} ${OBVRES} ${OBFLEXSTRUC})
-    add_dependencies(DualSPHysics5.4_win64 LibDSphMoorDynPlus)
+    if(ENABLE_MOORDYNPLUS)
+      add_dependencies(DualSPHysics5.4_win64 LibDSphMoorDynPlus)
+    endif()
     install(TARGETS DualSPHysics5.4_win64 DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-  endif(CUDA_FOUND)
+  endif(CUDA_FOUND AND ENABLE_CUDA)
+
+  if (ENABLE_HIP)
+    # Set HIP language for HIP source files
+    set_source_files_properties(${OBHIP} ${OBWAVERZHIP} PROPERTIES LANGUAGE HIP)
+
+    add_executable(DualSPHysics5.4HIP_win64 ${OBJXML} ${OBJSPHMOTION} ${OBCOMMON} ${OBCOMMONDSPH} ${OBSPH} ${OBSPHSINGLE} ${OBCOMMONGPU} ${OBSPHGPU} ${OBSPHSINGLEGPU} ${OBHIP} ${OBWAVERZ} ${OBWAVERZHIP} ${OBCHRONO} ${OBMOORDYNPLUS} ${OBINOUT} ${OBINOUTGPU} ${OBVRESGPU} ${OBWAVERZGPU} ${OBINOUTGPU} ${OBMESH} ${OBVRES} ${OBFLEXSTRUC})
+    set_target_properties(DualSPHysics5.4HIP_win64 PROPERTIES
+      LINKER_LANGUAGE CXX)
+    if(ENABLE_MOORDYNPLUS)
+      add_dependencies(DualSPHysics5.4HIP_win64 LibDSphMoorDynPlus)
+    endif()
+    install(TARGETS DualSPHysics5.4HIP_win64 DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+  endif(ENABLE_HIP)
 endif()
 
 foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
@@ -214,20 +333,49 @@ endif(ENABLE_MOORDYNPLUS)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(DualSPHysics5.4CPU_linux64 ${LINKER_FLAGS})
   set_target_properties(DualSPHysics5.4CPU_linux64 PROPERTIES COMPILE_FLAGS "-use_fast_math -O3 -D_WITHMR -fPIC -std=c++0x")
-  
-  if (CUDA_FOUND)
+
+  if (CUDA_FOUND AND ENABLE_CUDA)
     target_link_libraries(DualSPHysics5.4_linux64 ${LINKER_FLAGS})
     set_target_properties(DualSPHysics5.4_linux64 PROPERTIES COMPILE_FLAGS "-use_fast_math -O3 -D_WITHMR -D_WITHGPU -fPIC -std=c++0x")
-  endif(CUDA_FOUND)
+  endif(CUDA_FOUND AND ENABLE_CUDA)
+
+  if (ENABLE_HIP)
+    target_link_libraries(DualSPHysics5.4HIP_linux64 ${LINKER_FLAGS})
+
+    # Set C++ compile flags for non-HIP files
+    set_target_properties(DualSPHysics5.4HIP_linux64 PROPERTIES
+      COMPILE_FLAGS "-O3 -D_WITHMR -D_WITHGPU -fPIC -std=c++11"
+    )
+
+    # Link HIP library
+    target_link_libraries(DualSPHysics5.4HIP_linux64 ${HIP_LIBRARY})
+  endif(ENABLE_HIP)
   
 elseif(MSVC)
   # MSVC 2022
   set_target_properties(DualSPHysics5.4CPU_win64 PROPERTIES COMPILE_FLAGS "/D _WITHMR")
   target_link_libraries(DualSPHysics5.4CPU_win64  ${LINKER_FLAGS})
-  if (CUDA_FOUND)
+
+  if (CUDA_FOUND AND ENABLE_CUDA)
     set_target_properties(DualSPHysics5.4_win64 PROPERTIES COMPILE_FLAGS "/D _WITHMR /D _WITHGPU")
     target_link_libraries(DualSPHysics5.4_win64 ${LINKER_FLAGS})
-  endif(CUDA_FOUND)
+  endif(CUDA_FOUND AND ENABLE_CUDA)
+
+  if (ENABLE_HIP)
+    target_link_libraries(DualSPHysics5.4HIP_win64 ${LINKER_FLAGS})
+
+    # Set C++ compile flags (not HIP flags)
+    target_compile_options(DualSPHysics5.4HIP_win64 PRIVATE
+      $<$<COMPILE_LANGUAGE:CXX>:/D_WITHMR /D_WITHGPU>
+    )
+
+    # Set HIP compile flags only for HIP files
+    target_compile_options(DualSPHysics5.4HIP_win64 PRIVATE
+      $<$<COMPILE_LANGUAGE:HIP>:/D_WITHMR /D_WITHGPU>
+    )
+
+    target_link_libraries(DualSPHysics5.4HIP_win64 hip::host hip::device)
+  endif(ENABLE_HIP)
 
   SET(CUDA_PROPAGATE_HOST_FLAGS OFF CACHE BOOL "Propagate C/CXX Flags and friends to the host compiler in NVCC via -Xompile  " FORCE)
   

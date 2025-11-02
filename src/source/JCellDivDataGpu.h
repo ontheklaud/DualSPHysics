@@ -22,7 +22,11 @@
 #define _JCellDivDataGpu_
 
 #include "DualSphDef.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 ///Structure with data of cell division for neighborhood search on GPU.
 typedef struct{

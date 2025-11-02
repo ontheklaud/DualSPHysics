@@ -23,7 +23,11 @@
 
 #include "DualSphDef.h"
 #include "JCellDivDataGpu.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 
 /// Implements a set of functions and CUDA kernels for PIPS calculation.

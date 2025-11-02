@@ -29,7 +29,11 @@
 #ifndef _JReduSum_ker_
 #define _JReduSum_ker_
 
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 #ifndef REDUBSIZE
 #define REDUBSIZE 256
