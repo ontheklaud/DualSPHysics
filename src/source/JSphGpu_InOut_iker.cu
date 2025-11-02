@@ -22,7 +22,9 @@
 #include "Functions.h"
 #include "FunctionsCuda.h"
 #include <cfloat>
+#ifndef __HIP_PLATFORM_AMD__
 #include <math_constants.h>
+#endif
 
 namespace cusphinout{
 #include "FunctionsBasic_iker.h"

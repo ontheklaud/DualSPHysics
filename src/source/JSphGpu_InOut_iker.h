@@ -24,7 +24,11 @@
 #include "DualSphDef.h"
 #include "JCellDivDataGpu.h"
 #include "JSphGpu_ker.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 #define INOUT_RefillAdvanced_MASK 0x01
 #define INOUT_RefillSpFull_MASK 0x02
