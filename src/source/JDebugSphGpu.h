@@ -37,7 +37,11 @@
 
 #include <string>
 #include <cstring>
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 
 class JDataArrays;

@@ -147,8 +147,9 @@ process_file() {
             # Build hipify command
             local hipify_cmd="hipify-clang \"$file\" \
                 --cuda-path=$CUDA_PATH \
-                -I. \
-                -I$CUDA_PATH/include \
+                --extra-arg=-D_WITHGPU \
+                --extra-arg=-I. \
+                --extra-arg=-I$CUDA_PATH/include \
                 --print-stats \
                 -o \"$output_file\""
             

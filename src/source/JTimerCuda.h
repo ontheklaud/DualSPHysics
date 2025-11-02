@@ -29,7 +29,12 @@
 #ifndef _JTimerCuda_
 #define _JTimerCuda_
 
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+typedef hipEvent_t cudaEvent_t;
+#else
 #include <cuda_runtime_api.h>
+#endif
 
 //##############################################################################
 //# JTimerCuda

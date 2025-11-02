@@ -34,7 +34,11 @@
 
 #ifdef _WITHGPU
 #include "JCellDivDataGpu.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 #endif
 
 #include <string>

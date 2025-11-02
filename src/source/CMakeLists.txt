@@ -239,6 +239,13 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_executable(DualSPHysics5.4HIP_linux64 ${OBJXML} ${OBJSPHMOTION} ${OBCOMMON} ${OBCOMMONDSPH} ${OBSPH} ${OBSPHSINGLE} ${OBCOMMONGPU} ${OBSPHGPU} ${OBSPHSINGLEGPU} ${HIP_OBJECTS} ${OBWAVERZ} ${OBCHRONO} ${OBMOORDYNPLUS} ${OBINOUT} ${OBINOUTGPU} ${OBVRESGPU} ${OBWAVERZGPU} ${OBINOUTGPU} ${OBMESH} ${OBVRES} ${OBFLEXSTRUC})
     set_target_properties(DualSPHysics5.4HIP_linux64 PROPERTIES
       LINKER_LANGUAGE CXX)
+    target_compile_definitions(DualSPHysics5.4HIP_linux64 PRIVATE __HIP_PLATFORM_AMD__)
+    # Use ROCM_PATH if set, otherwise use HIP_PATH
+    if(DEFINED ENV{ROCM_PATH})
+      target_include_directories(DualSPHysics5.4HIP_linux64 PRIVATE $ENV{ROCM_PATH}/include)
+    else()
+      target_include_directories(DualSPHysics5.4HIP_linux64 PRIVATE ${HIP_PATH}/include)
+    endif()
     if(ENABLE_MOORDYNPLUS)
       add_dependencies(DualSPHysics5.4HIP_linux64 LibDSphMoorDynPlus)
     endif()
