@@ -10,7 +10,11 @@
 #include "DualSphDef.h"
 #include "JCellDivDataGpu.h"
 #include "JSphGpu_ker.h"
+#ifdef __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime.h>
+#else
 #include <cuda_runtime_api.h>
+#endif
 #include "JSphVRes.h"
 #include "JSphVResDef.h"
 
