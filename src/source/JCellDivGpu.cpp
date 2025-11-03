@@ -91,7 +91,11 @@ void JCellDivGpu::Reset(){
 /// Libera memoria reservada para celdas.
 //==============================================================================
 void JCellDivGpu::FreeMemoryNct(){
+#ifdef __HIP_PLATFORM_AMD__
+  hipFree(BeginEndCell); BeginEndCell=NULL;
+#else
   cudaFree(BeginEndCell); BeginEndCell=NULL;
+#endif
   MemAllocGpuNct=0;
   BoundDivideOk=false;
 }
@@ -102,11 +106,19 @@ void JCellDivGpu::FreeMemoryNct(){
 //==============================================================================
 void JCellDivGpu::FreeMemoryAll(){
   FreeMemoryNct();
+#ifdef __HIP_PLATFORM_AMD__
+  hipFree(CellPart);   CellPart=NULL;
+  hipFree(SortPart);   SortPart=NULL;
+  hipFree(AuxMem);     AuxMem=NULL;
+  hipFree(SortPart2);  SortPart2=NULL; //<vs_flexstruc>
+  hipFree(SortIdx);    SortIdx=NULL;   //<vs_flexstruc>
+#else
   cudaFree(CellPart);   CellPart=NULL;
   cudaFree(SortPart);   SortPart=NULL;
   cudaFree(AuxMem);     AuxMem=NULL;
   cudaFree(SortPart2);  SortPart2=NULL; //<vs_flexstruc>
   cudaFree(SortIdx);    SortIdx=NULL;   //<vs_flexstruc>
+#endif
   MemAllocGpuNp=0;
   BoundDivideOk=false;
 }
@@ -134,8 +146,13 @@ void JCellDivGpu::AllocMemoryNp(ullong np,ullong npmin){
   MemAllocGpuNpTimes++;
   //-Checks allocated memory.
   //-Comprueba reserva de memoria.
+#ifdef __HIP_PLATFORM_AMD__
+  hipError_t cuerr=hipGetLastError();
+  if(cuerr!=hipSuccess){
+#else
   cudaError_t cuerr=cudaGetLastError();
   if(cuerr!=cudaSuccess){
+#endif
     Run_ExceptioonCuda(cuerr,fun::PrintStr(
       "Failed GPU memory allocation of %.1f MiB for %u particles."
       ,double(MemAllocGpuNp)/MEBIBYTE,SizeNp));
@@ -161,8 +178,13 @@ void JCellDivGpu::AllocMemoryNct(ullong nct,ullong nctmin){
   MemAllocGpuNct=fcuda::Malloc(&BeginEndCell,nctt);
   MemAllocGpuNctTimes++;
   //-Checks allocated memory.
+#ifdef __HIP_PLATFORM_AMD__
+  const hipError_t cuerr=hipGetLastError();
+  if(cuerr!=hipSuccess){
+#else
   const cudaError_t cuerr=cudaGetLastError();
   if(cuerr!=cudaSuccess){
+#endif
     Run_ExceptioonCuda(cuerr,fun::PrintStr(
       "Failed GPU memory allocation of %.1f MiB for %s cells."
       ,double(MemAllocGpuNct)/MEBIBYTE,KINT(SizeNct)));
@@ -295,7 +317,11 @@ void JCellDivGpu::CalcCellDomainFluid(unsigned n,unsigned pini,unsigned n2
 /// Devuelve principo y final de la celda indicada.
 //==============================================================================
 void JCellDivGpu::CellBeginEnd(unsigned cell,unsigned ndata,unsigned* data)const{
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(data,BeginEndCell+cell,sizeof(int)*ndata,hipMemcpyDeviceToHost);
+#else
   cudaMemcpy(data,BeginEndCell+cell,sizeof(int)*ndata,cudaMemcpyDeviceToHost);
+#endif
 }
 
 //==============================================================================
@@ -304,7 +330,11 @@ void JCellDivGpu::CellBeginEnd(unsigned cell,unsigned ndata,unsigned* data)const
 //==============================================================================
 int2 JCellDivGpu::CellBeginEnd(unsigned cell)const{
   int2 v;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(&v,BeginEndCell+cell,sizeof(int2),hipMemcpyDeviceToHost);
+#else
   cudaMemcpy(&v,BeginEndCell+cell,sizeof(int2),cudaMemcpyDeviceToHost);
+#endif
   return(v);
 }
 
@@ -473,7 +503,11 @@ tdouble3 JCellDivGpu::GetDomainLimits(bool limitmin,unsigned slicecellmin)const{
 //==============================================================================
 void JCellDivGpu::UpdateIndices(unsigned n,unsigned* idx){
   if(DivideFull){
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(SortPart2,SortPart,sizeof(unsigned)*NpbFinal,hipMemcpyDeviceToDevice);
+#else
     cudaMemcpy(SortPart2,SortPart,sizeof(unsigned)*NpbFinal,cudaMemcpyDeviceToDevice);
+#endif
     cudiv::SortIndices(SortPart2,SortIdx,NpbFinal,Stable);
     cudiv::UpdateIndices(n,SortIdx,idx);
   }

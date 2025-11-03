@@ -708,8 +708,13 @@ void JSphInOutVel::RnSetVelUniform(double time0,float vel0,double time1,float ve
     }
     if(v.gpuptr){
      #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+      hipMemcpy(ptr0,ptrc0,sizeof(float)*npt,hipMemcpyHostToDevice);
+      hipMemcpy(ptr1,ptrc1,sizeof(float)*npt,hipMemcpyHostToDevice);
+#else
       cudaMemcpy(ptr0,ptrc0,sizeof(float)*npt,cudaMemcpyHostToDevice);
       cudaMemcpy(ptr1,ptrc1,sizeof(float)*npt,cudaMemcpyHostToDevice);
+#endif
       delete[] ptrc0;
       delete[] ptrc1;
      #endif

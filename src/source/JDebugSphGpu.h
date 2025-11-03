@@ -39,6 +39,7 @@
 #include <cstring>
 #ifdef __HIP_PLATFORM_AMD__
 #include <hip/hip_runtime.h>
+typedef hipError_t cudaError_t;
 #else
 #include <cuda_runtime_api.h>
 #endif

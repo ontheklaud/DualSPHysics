@@ -228,6 +228,18 @@ void JSphVRes::AllocateMemoryGpu(unsigned listsize){
 /// Frees allocated memory on GPU.
 //==============================================================================
 void JSphVRes::FreeMemoryGpu(){
+#ifdef __HIP_PLATFORM_AMD__
+  if(BoxLimitMing)    hipFree(BoxLimitMing);   BoxLimitMing=NULL;
+  if(BoxLimitMaxg)    hipFree(BoxLimitMaxg);   BoxLimitMaxg=NULL;
+  if(BoxDomMing)      hipFree(BoxDomMing);     BoxDomMing=NULL;
+  if(BoxDomMaxg)      hipFree(BoxDomMaxg);     BoxDomMaxg=NULL;
+  if(Widthg)          hipFree(Widthg);         Widthg=NULL;
+  if(Innerg)          hipFree(Innerg);         Innerg=NULL;
+  if(Trackingg)       hipFree(Trackingg);      Trackingg=NULL;
+  if(NInig)           hipFree(NInig);          NInig=NULL;
+  if(NPointsg)        hipFree(NPointsg);       NPointsg=NULL;
+  if(Matmovg)         hipFree(Matmovg);        Matmovg=NULL;
+#else
   if(BoxLimitMing)    cudaFree(BoxLimitMing);   BoxLimitMing=NULL;
   if(BoxLimitMaxg)    cudaFree(BoxLimitMaxg);   BoxLimitMaxg=NULL;
   if(BoxDomMing)      cudaFree(BoxDomMing);     BoxDomMing=NULL;
@@ -236,8 +248,9 @@ void JSphVRes::FreeMemoryGpu(){
   if(Innerg)          cudaFree(Innerg);         Innerg=NULL;
   if(Trackingg)       cudaFree(Trackingg);      Trackingg=NULL;
   if(NInig)           cudaFree(NInig);          NInig=NULL;
-  if(NPointsg)        cudaFree(NPointsg);       NPointsg=NULL; 
+  if(NPointsg)        cudaFree(NPointsg);       NPointsg=NULL;
   if(Matmovg)         cudaFree(Matmovg);        Matmovg=NULL;
+#endif
 }
 
 //==============================================================================
@@ -255,11 +268,19 @@ void JSphVRes::AllocatePtMemoryGpu(unsigned ptcount){
 /// Frees allocated memory for reference points and auxiliary memory on GPU.
 //==============================================================================
 void JSphVRes::FreePtMemoryGpu(){
+#ifdef __HIP_PLATFORM_AMD__
+  if(PtPosxyg)     hipFree(PtPosxyg);      PtPosxyg=NULL;
+  if(PtPoszg)      hipFree(PtPoszg);       PtPoszg=NULL;
+  if(PtNormalsg)   hipFree(PtNormalsg);    PtNormalsg=NULL;
+  if(PtVelMotg)    hipFree(PtVelMotg);     PtVelMotg=NULL;
+  if(PtMassg)      hipFree(PtMassg);       PtMassg=NULL;
+#else
   if(PtPosxyg)     cudaFree(PtPosxyg);      PtPosxyg=NULL;
   if(PtPoszg)      cudaFree(PtPoszg);       PtPoszg=NULL;
   if(PtNormalsg)   cudaFree(PtNormalsg);    PtNormalsg=NULL;
   if(PtVelMotg)    cudaFree(PtVelMotg);     PtVelMotg=NULL;
   if(PtMassg)      cudaFree(PtMassg);       PtMassg=NULL;
+#endif
 }
 #endif
 
@@ -347,6 +368,17 @@ void JSphVRes::Config()
   //-Upload vres zone configurations on the gpu memory.
 #ifdef _WITHGPU
   if(!Cpu){
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(BoxLimitMing ,BoxLimitMin  ,sizeof(double3)  *ListSize,hipMemcpyHostToDevice);
+    hipMemcpy(BoxLimitMaxg ,BoxLimitMax  ,sizeof(double3)  *ListSize,hipMemcpyHostToDevice);
+    hipMemcpy(BoxDomMing   ,BoxDomMin    ,sizeof(double3)  *ListSize,hipMemcpyHostToDevice);
+    hipMemcpy(BoxDomMaxg   ,BoxDomMax    ,sizeof(double3)  *ListSize,hipMemcpyHostToDevice);
+    hipMemcpy(Widthg       ,Width        ,sizeof(float)    *ListSize,hipMemcpyHostToDevice);
+    hipMemcpy(Innerg       ,Inner        ,sizeof(bool)     *ListSize,hipMemcpyHostToDevice);
+    hipMemcpy(Trackingg    ,Tracking     ,sizeof(bool)     *ListSize,hipMemcpyHostToDevice);
+    hipMemcpy(NInig        ,NIni         ,sizeof(unsigned) *ListSize,hipMemcpyHostToDevice);
+    hipMemcpy(NPointsg     ,NPoints      ,sizeof(unsigned) *ListSize,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(BoxLimitMing ,BoxLimitMin  ,sizeof(double3)  *ListSize,cudaMemcpyHostToDevice);
     cudaMemcpy(BoxLimitMaxg ,BoxLimitMax  ,sizeof(double3)  *ListSize,cudaMemcpyHostToDevice);
     cudaMemcpy(BoxDomMing   ,BoxDomMin    ,sizeof(double3)  *ListSize,cudaMemcpyHostToDevice);
@@ -356,13 +388,18 @@ void JSphVRes::Config()
     cudaMemcpy(Trackingg    ,Tracking     ,sizeof(bool)     *ListSize,cudaMemcpyHostToDevice);
     cudaMemcpy(NInig        ,NIni         ,sizeof(unsigned) *ListSize,cudaMemcpyHostToDevice);
     cudaMemcpy(NPointsg     ,NPoints      ,sizeof(unsigned) *ListSize,cudaMemcpyHostToDevice);
+#endif
 
     tmatrix4f* matc=  new tmatrix4f[ListSize];
     for(unsigned ci=0; ci<ListSize; ci++){
       tmatrix4f mat_new=Matmov[ci].GetMatrix4f();
       matc[ci]=mat_new;
     }
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(Matmovg,matc,sizeof(tmatrix4f)*ListSize,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(Matmovg,matc,sizeof(tmatrix4f)*ListSize,cudaMemcpyHostToDevice);
+#endif
     delete[] matc;  matc=NULL;
   }
 #endif
@@ -395,14 +432,22 @@ void JSphVRes::Config()
     pxy[c]=TDouble2(PtPoints[c].x,PtPoints[c].y);
     pz[c]=PtPoints[c].z;
     }
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(PtPosxyg     ,pxy          ,sizeof(double2)  *PtCount ,hipMemcpyHostToDevice);
+    hipMemcpy(PtPoszg      ,pz           ,sizeof(double)   *PtCount ,hipMemcpyHostToDevice);
+    hipMemcpy(PtNormalsg   ,PtNormals    ,sizeof(float3)   *PtCount ,hipMemcpyHostToDevice);
+    hipMemcpy(PtVelMotg    ,PtVelMot     ,sizeof(float3)   *PtCount ,hipMemcpyHostToDevice);
+    hipMemcpy(PtMassg      ,PtMass       ,sizeof(float)    *PtCount ,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(PtPosxyg     ,pxy          ,sizeof(double2)  *PtCount ,cudaMemcpyHostToDevice);
     cudaMemcpy(PtPoszg      ,pz           ,sizeof(double)   *PtCount ,cudaMemcpyHostToDevice);
     cudaMemcpy(PtNormalsg   ,PtNormals    ,sizeof(float3)   *PtCount ,cudaMemcpyHostToDevice);
     cudaMemcpy(PtVelMotg    ,PtVelMot     ,sizeof(float3)   *PtCount ,cudaMemcpyHostToDevice);
     cudaMemcpy(PtMassg      ,PtMass       ,sizeof(float)    *PtCount ,cudaMemcpyHostToDevice);
+#endif
     delete[] pxy; pxy=NULL;
     delete[] pz;  pz=NULL;
-  } 
+  }
 #endif    
 }
 
@@ -463,7 +508,11 @@ void JSphVRes::UpdateMatMov(std::vector<JMatrix4d> mat){
       tmatrix4f mat_1=Matmov[ci].GetMatrix4f();
       matc[ci]=mat_1;
     }
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(Matmovg,matc,sizeof(tmatrix4f)*ListSize,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(Matmovg,matc,sizeof(tmatrix4f)*ListSize,cudaMemcpyHostToDevice);
+#endif
     delete[] matc;  matc=NULL;
   }
 #endif
@@ -488,8 +537,13 @@ void JSphVRes::SaveVResData(int part,double timestep,int nstep){
 
   #ifdef _WITHGPU
   if(!Cpu){
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(PtVelMot   ,PtVelMotg     ,sizeof(float3)   *PtCount ,hipMemcpyDeviceToHost);
+    hipMemcpy(PtMass     ,PtMassg       ,sizeof(float)    *PtCount ,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(PtVelMot   ,PtVelMotg     ,sizeof(float3)   *PtCount ,cudaMemcpyDeviceToHost);
     cudaMemcpy(PtMass     ,PtMassg       ,sizeof(float)    *PtCount ,cudaMemcpyDeviceToHost);
+#endif
   }
   #endif
 
@@ -853,9 +907,15 @@ void JSphVRes::SaveNormals(std::string filename,int numfile){
     memcpy(PtPoints,posh,sizeof(tdouble3)*PtCount);
     delete[] posh;
 
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(PtNormals, PtNormalsg, sizeof(float3) * PtCount, hipMemcpyDeviceToHost);
+    hipMemcpy(PtVelMot,  PtVelMotg,  sizeof(float3) * PtCount, hipMemcpyDeviceToHost);
+    hipMemcpy(PtMass,    PtMassg,    sizeof(float)  * PtCount, hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(PtNormals, PtNormalsg, sizeof(float3) * PtCount, cudaMemcpyDeviceToHost);
     cudaMemcpy(PtVelMot,  PtVelMotg,  sizeof(float3) * PtCount, cudaMemcpyDeviceToHost);
     cudaMemcpy(PtMass,    PtMassg,    sizeof(float)  * PtCount, cudaMemcpyDeviceToHost);
+#endif
   }
   #endif
 

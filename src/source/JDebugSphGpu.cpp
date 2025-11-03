@@ -51,7 +51,11 @@ void JDebugSphGpu::RunExceptioonCudaStatic(const std::string& srcfile,int srclin
   ,const std::string& method
   ,cudaError_t cuerr,std::string msg)
 {
+#ifdef __HIP_PLATFORM_AMD__
+  msg=msg+fun::PrintStr(" (HIP error %d (%s)).\n",cuerr,hipGetErrorString(cuerr));
+#else
   msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,cudaGetErrorString(cuerr));
+#endif
   throw JException(srcfile,srcline,"JDebugSphGpu",method,msg,"");
 }
 //==============================================================================
@@ -60,8 +64,13 @@ void JDebugSphGpu::RunExceptioonCudaStatic(const std::string& srcfile,int srclin
 void JDebugSphGpu::CheckCudaErroorStatic(const std::string& srcfile,int srcline
   ,const std::string& method,std::string msg)
 {
+#ifdef __HIP_PLATFORM_AMD__
+  hipError_t cuerr=hipGetLastError();
+  if(cuerr!=hipSuccess)RunExceptioonCudaStatic(srcfile,srcline,method,cuerr,msg);
+#else
   cudaError_t cuerr=cudaGetLastError();
   if(cuerr!=cudaSuccess)RunExceptioonCudaStatic(srcfile,srcline,method,cuerr,msg);
+#endif
 }
 
 //==============================================================================

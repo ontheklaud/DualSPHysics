@@ -333,7 +333,11 @@ void JSphInOutZsurf::MeshToZsurfLinePoints(jmsh::JMeshTDatas* mdatas){
     const unsigned n=Nptx*tcount;
     fcuda::Malloc(&TimesZsurfg,n);
     fcuda::Malloc(&CurrentZsurfg,Nptx);
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(TimesZsurfg,TimesZsurf,sizeof(float)*n,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(TimesZsurfg,TimesZsurf,sizeof(float)*n,cudaMemcpyHostToDevice);
+#endif
   }
 #endif
 
@@ -388,8 +392,13 @@ void JSphInOutZsurf::ResetTimes(){
   delete[] CurrentZsurf; CurrentZsurf=NULL;
 #ifdef _WITHGPU
   if(!Cpu){
+#ifdef __HIP_PLATFORM_AMD__
+    hipFree(TimesZsurfg);    TimesZsurfg=NULL;
+    hipFree(CurrentZsurfg);  CurrentZsurfg=NULL;
+#else
     cudaFree(TimesZsurfg);    TimesZsurfg=NULL;
     cudaFree(CurrentZsurfg);  CurrentZsurfg=NULL;
+#endif
   }
 #endif
 }
@@ -560,7 +569,11 @@ void JSphInOutZsurf::ConfigZsurfResults(){
       //-Nothing to do since CurrentZsurf (for CPU and GPU) and CurrentZsurfg (only for GPU) contains the zsurf results.
     }
     #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+      if(!Cpu && CurrentZsurfg!=NULL)hipMemcpy(CurrentZsurf,CurrentZsurfg,sizeof(float)*Nptx,hipMemcpyDeviceToHost);
+#else
       if(!Cpu && CurrentZsurfg!=NULL)cudaMemcpy(CurrentZsurf,CurrentZsurfg,sizeof(float)*Nptx,cudaMemcpyDeviceToHost);
+#endif
     #endif
     ZsurfResults.zsurf=CurrentZsurf;
   }
@@ -577,7 +590,11 @@ void JSphInOutZsurf::ConfigZsurfResults(){
 //==============================================================================
 const StZsurfResult& JSphInOutZsurf::GetZsurfResults()const{
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    if(!Cpu && CurrentZsurfg!=NULL)hipMemcpy(CurrentZsurf,CurrentZsurfg,sizeof(float)*Nptx,hipMemcpyDeviceToHost);
+#else
     if(!Cpu && CurrentZsurfg!=NULL)cudaMemcpy(CurrentZsurf,CurrentZsurfg,sizeof(float)*Nptx,cudaMemcpyDeviceToHost);
+#endif
   #endif
   return(ZsurfResults);
 }
@@ -703,7 +720,11 @@ void JSphInOutZsurf::RnSetZsurfUniform(double time0,double zsurf0
     }
     if(v.gpuptr){
      #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+      hipMemcpy(ptr,ptrc,sizeof(float)*v.npt*2,hipMemcpyHostToDevice);
+#else
       cudaMemcpy(ptr,ptrc,sizeof(float)*v.npt*2,cudaMemcpyHostToDevice);
+#endif
       delete[] ptrc;
      #endif
     }

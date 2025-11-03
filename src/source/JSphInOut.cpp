@@ -325,10 +325,17 @@ void JSphInOut::AllocatePtMemoryGpu(unsigned ptcount){
 /// Frees allocated memory for reference points and auxiliary memory on GPU.
 //==============================================================================
 void JSphInOut::FreePtMemoryGpu(){
+#ifdef __HIP_PLATFORM_AMD__
+  if(PtZoneg)   hipFree(PtZoneg);    PtZoneg=NULL;
+  if(PtPosxyg)  hipFree(PtPosxyg);   PtPosxyg=NULL;
+  if(PtPoszg)   hipFree(PtPoszg);    PtPoszg=NULL;
+  if(PtAuxDistg)hipFree(PtAuxDistg); PtAuxDistg=NULL;
+#else
   if(PtZoneg)   cudaFree(PtZoneg);    PtZoneg=NULL;
   if(PtPosxyg)  cudaFree(PtPosxyg);   PtPosxyg=NULL;
   if(PtPoszg)   cudaFree(PtPoszg);    PtPoszg=NULL;
   if(PtAuxDistg)cudaFree(PtAuxDistg); PtAuxDistg=NULL;
+#endif
 }
 
 //==============================================================================
@@ -354,6 +361,16 @@ void JSphInOut::AllocateMemoryGpu(unsigned listsize){
 /// Frees allocated memory on GPU.
 //==============================================================================
 void JSphInOut::FreeMemoryGpu(){
+#ifdef __HIP_PLATFORM_AMD__
+  if(Planesg)   hipFree(Planesg);     Planesg=NULL;
+  if(BoxLimitg) hipFree(BoxLimitg);   BoxLimitg=NULL;
+  if(CfgZoneg)  hipFree(CfgZoneg);    CfgZoneg=NULL;
+  if(CfgUpdateg)hipFree(CfgUpdateg);  CfgUpdateg=NULL;
+  if(Widthg)    hipFree(Widthg);      Widthg=NULL;
+  if(DirDatag)  hipFree(DirDatag);    DirDatag=NULL;
+  if(DirVelg)   hipFree(DirVelg);     DirVelg=NULL;
+  if(Zsurfg)    hipFree(Zsurfg);      Zsurfg=NULL;
+#else
   if(Planesg)   cudaFree(Planesg);     Planesg=NULL;
   if(BoxLimitg) cudaFree(BoxLimitg);   BoxLimitg=NULL;
   if(CfgZoneg)  cudaFree(CfgZoneg);    CfgZoneg=NULL;
@@ -362,6 +379,7 @@ void JSphInOut::FreeMemoryGpu(){
   if(DirDatag)  cudaFree(DirDatag);    DirDatag=NULL;
   if(DirVelg)   cudaFree(DirVelg);     DirVelg=NULL;
   if(Zsurfg)    cudaFree(Zsurfg);      Zsurfg=NULL;
+#endif
 }
 #endif
 
@@ -574,6 +592,15 @@ unsigned JSphInOut::Config(double timestep,bool stable,byte periactive
     if(INOUT_ConvertInput_MASK  !=JSphInOutZone::ConvertInput_MASK  )Run_Exceptioon("ConvertInput mask does not match.");
     if(!Cpu){
       //-Copies data to GPU memory.
+#ifdef __HIP_PLATFORM_AMD__
+      hipMemcpy(Planesg   ,Planes   ,sizeof(float4)*ListSize,hipMemcpyHostToDevice);
+      hipMemcpy(CfgZoneg  ,CfgZone  ,sizeof(byte)  *ListSize,hipMemcpyHostToDevice);
+      hipMemcpy(CfgUpdateg,CfgUpdate,sizeof(byte)  *ListSize,hipMemcpyHostToDevice);
+      hipMemcpy(Widthg    ,Width    ,sizeof(float) *ListSize,hipMemcpyHostToDevice);
+      hipMemcpy(DirDatag  ,DirData  ,sizeof(float3)*ListSize,hipMemcpyHostToDevice);
+      hipMemcpy(DirVelg   ,DirVel   ,sizeof(float3)*ListSize,hipMemcpyHostToDevice);
+      //hipMemcpy(Zsurfg  ,Zsurf  ,sizeof(float) *ListSize,hipMemcpyHostToDevice); //It is done in UpdateZsurf().
+#else
       cudaMemcpy(Planesg   ,Planes   ,sizeof(float4)*ListSize,cudaMemcpyHostToDevice);
       cudaMemcpy(CfgZoneg  ,CfgZone  ,sizeof(byte)  *ListSize,cudaMemcpyHostToDevice);
       cudaMemcpy(CfgUpdateg,CfgUpdate,sizeof(byte)  *ListSize,cudaMemcpyHostToDevice);
@@ -581,6 +608,7 @@ unsigned JSphInOut::Config(double timestep,bool stable,byte periactive
       cudaMemcpy(DirDatag  ,DirData  ,sizeof(float3)*ListSize,cudaMemcpyHostToDevice);
       cudaMemcpy(DirVelg   ,DirVel   ,sizeof(float3)*ListSize,cudaMemcpyHostToDevice);
       //cudaMemcpy(Zsurfg  ,Zsurf  ,sizeof(float) *ListSize,cudaMemcpyHostToDevice); //It is done in UpdateZsurf().
+#endif
       //-Copies data for BoxLimitg to GPU memory.
       if(UseBoxLimit){
         tfloat2* boxlimit=new tfloat2[ListSize*3];
@@ -591,7 +619,11 @@ unsigned JSphInOut::Config(double timestep,bool stable,byte periactive
           boxlimit[ListSize+ci]=TFloat2(boxmin.y,boxmax.y);
           boxlimit[ListSize*2+ci]=TFloat2(boxmin.z,boxmax.z);
         }
+#ifdef __HIP_PLATFORM_AMD__
+        hipMemcpy(BoxLimitg,boxlimit,sizeof(float2)*ListSize*3,hipMemcpyHostToDevice);
+#else
         cudaMemcpy(BoxLimitg,boxlimit,sizeof(float2)*ListSize*3,cudaMemcpyHostToDevice);
+#endif
         delete[] boxlimit; boxlimit=NULL;
       }
     }
@@ -655,9 +687,15 @@ unsigned JSphInOut::Config(double timestep,bool stable,byte periactive
           pz[c]=PtPos[c].z;
         }
         //-Copies data to GPU memory.
+#ifdef __HIP_PLATFORM_AMD__
+        hipMemcpy(PtZoneg ,PtZone,sizeof(byte)   *PtCount,hipMemcpyHostToDevice);
+        hipMemcpy(PtPosxyg,pxy   ,sizeof(double2)*PtCount,hipMemcpyHostToDevice);
+        hipMemcpy(PtPoszg ,pz    ,sizeof(double) *PtCount,hipMemcpyHostToDevice);
+#else
         cudaMemcpy(PtZoneg ,PtZone,sizeof(byte)   *PtCount,cudaMemcpyHostToDevice);
         cudaMemcpy(PtPosxyg,pxy   ,sizeof(double2)*PtCount,cudaMemcpyHostToDevice);
         cudaMemcpy(PtPoszg ,pz    ,sizeof(double) *PtCount,cudaMemcpyHostToDevice);
+#endif
         //-Frees auxiliary memory.
         delete[] pxy; pxy=NULL;
         delete[] pz;  pz=NULL;
@@ -1004,7 +1042,11 @@ void JSphInOut::UpdateZsurfData(double timestep,bool full){
     }
   }
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    if(modified && !Cpu)hipMemcpy(Zsurfg,Zsurf,sizeof(float)*ListSize,hipMemcpyHostToDevice);
+#else
     if(modified && !Cpu)cudaMemcpy(Zsurfg,Zsurf,sizeof(float)*ListSize,cudaMemcpyHostToDevice);
+#endif
   #endif
 }
 
