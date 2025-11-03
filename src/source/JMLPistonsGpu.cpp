@@ -20,7 +20,11 @@
 
 #include "JMLPistonsGpu.h"
 #ifdef _WITHGPU
-  #include <cuda_runtime_api.h>
+  #ifdef __HIP_PLATFORM_AMD__
+    #include <hip/hip_runtime.h>
+  #else
+    #include <cuda_runtime_api.h>
+  #endif
 #endif
 
 using namespace std;
@@ -52,9 +56,14 @@ void JMLPistonsGpu::FreeMemoryGpu(){
   MemGpuFixed=0;
   #ifdef _WITHGPU
     //-GPU memory for List1d.
+#ifdef __HIP_PLATFORM_AMD__
+    if(PistonIdg)hipFree(PistonIdg);  PistonIdg=NULL;
+    if(MovVelg)  hipFree(MovVelg);    MovVelg=NULL;
+#else
     if(PistonIdg)cudaFree(PistonIdg);  PistonIdg=NULL;
     if(MovVelg)  cudaFree(MovVelg);    MovVelg=NULL;
-  #endif 
+#endif
+  #endif
 }
 
 //==============================================================================
@@ -64,12 +73,18 @@ void JMLPistonsGpu::PreparePiston1d(unsigned sizepistonid,const byte* pistonid
   ,unsigned sizemovvel)
 {
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    hipMalloc((void**)&PistonIdg,sizeof(byte)*sizepistonid);
+    hipMemcpy(PistonIdg,pistonid,sizeof(byte)*sizepistonid,hipMemcpyHostToDevice);
+    hipMalloc((void**)&MovVelg,sizeof(double)*sizemovvel);
+#else
     cudaMalloc((void**)&PistonIdg,sizeof(byte)*sizepistonid);
     cudaMemcpy(PistonIdg,pistonid,sizeof(byte)*sizepistonid,cudaMemcpyHostToDevice);
     cudaMalloc((void**)&MovVelg,sizeof(double)*sizemovvel);
+#endif
     MemGpuFixed=sizeof(byte)*sizepistonid;
     MemGpuFixed+=sizeof(double)*sizemovvel;
-  #endif 
+  #endif
 }
 
 //==============================================================================
@@ -77,8 +92,12 @@ void JMLPistonsGpu::PreparePiston1d(unsigned sizepistonid,const byte* pistonid
 //==============================================================================
 void JMLPistonsGpu::CopyMovVel(unsigned sizemovvel,const double* movvel){
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(MovVelg,movvel,sizeof(double)*sizemovvel,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(MovVelg,movvel,sizeof(double)*sizemovvel,cudaMemcpyHostToDevice);
-  #endif 
+#endif
+  #endif
 }
 
 
@@ -107,8 +126,12 @@ JMLPiston2DGpu::~JMLPiston2DGpu(){
 void JMLPiston2DGpu::FreeMemoryGpu(){
   Size=0;
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    if(MovVelyzg)hipFree(MovVelyzg);  MovVelyzg=NULL;
+#else
     if(MovVelyzg)cudaFree(MovVelyzg);  MovVelyzg=NULL;
-  #endif 
+#endif
+  #endif
 }
 
 //==============================================================================
@@ -118,8 +141,12 @@ void JMLPiston2DGpu::AllocMemoryGpu(unsigned size){
   #ifdef _WITHGPU
     FreeMemoryGpu();
     Size=size;
+#ifdef __HIP_PLATFORM_AMD__
+    hipMalloc((void**)&MovVelyzg,sizeof(double)*Size);
+#else
     cudaMalloc((void**)&MovVelyzg,sizeof(double)*Size);
-  #endif 
+#endif
+  #endif
 }
 
 //==============================================================================
@@ -127,8 +154,12 @@ void JMLPiston2DGpu::AllocMemoryGpu(unsigned size){
 //==============================================================================
 void JMLPiston2DGpu::CopyMovVelyz(const double* movvelyz){
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(MovVelyzg,movvelyz,sizeof(double)*Size,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(MovVelyzg,movvelyz,sizeof(double)*Size,cudaMemcpyHostToDevice);
-  #endif 
+#endif
+  #endif
 }
 
 

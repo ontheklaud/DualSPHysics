@@ -244,8 +244,14 @@ int GetCudaDevicesInfo(std::vector<std::string>* gpuinfo
     }
     if(gpuprops)gpuprops->push_back(g);
   }
-  int gid1=-10; cudaGetDevice(&gid1);
+  int gid1=-10;
+#ifdef __HIP_PLATFORM_AMD__
+  hipGetDevice(&gid1);
+  if(gid0>=0 && gid0!=gid1)hipSetDevice(gid0);
+#else
+  cudaGetDevice(&gid1);
   if(gid0>=0 && gid0!=gid1)cudaSetDevice(gid0);
+#endif
   return(deviceCount);
 }
 
@@ -349,7 +355,11 @@ size_t Malloc(ushort2** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(unsigned** ptr,unsigned count){
   const size_t size=sizeof(unsigned)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -358,7 +368,11 @@ size_t Malloc(unsigned** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(uint4** ptr,unsigned count){
   const size_t size=sizeof(uint4)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -367,7 +381,11 @@ size_t Malloc(uint4** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(int** ptr,unsigned count){
   const size_t size=sizeof(int)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -376,7 +394,11 @@ size_t Malloc(int** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(int2** ptr,unsigned count){
   const size_t size=sizeof(int2)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -385,7 +407,11 @@ size_t Malloc(int2** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(int3** ptr,unsigned count){
   const size_t size=sizeof(int3)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -394,7 +420,11 @@ size_t Malloc(int3** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(float** ptr,unsigned count){
   const size_t size=sizeof(float)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -403,7 +433,11 @@ size_t Malloc(float** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(float2** ptr,unsigned count){
   const size_t size=sizeof(float2)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -412,7 +446,11 @@ size_t Malloc(float2** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(float3** ptr,unsigned count){
   const size_t size=sizeof(float3)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -421,7 +459,11 @@ size_t Malloc(float3** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(float4** ptr,unsigned count){
   const size_t size=sizeof(float4)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -430,7 +472,11 @@ size_t Malloc(float4** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(double** ptr,unsigned count){
   const size_t size=sizeof(double)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -439,7 +485,11 @@ size_t Malloc(double** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(double2** ptr,unsigned count){
   const size_t size=sizeof(double2)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -448,7 +498,11 @@ size_t Malloc(double2** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(double3** ptr,unsigned count){
   const size_t size=sizeof(double3)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -458,7 +512,11 @@ size_t Malloc(double3** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(bool** ptr,unsigned count){
   const size_t size=sizeof(bool)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -467,7 +525,11 @@ size_t Malloc(bool** ptr,unsigned count){
 //==============================================================================
 size_t Malloc(tmatrix4f** ptr,unsigned count){
   const size_t size=sizeof(tmatrix4f)*count;
+#ifdef __HIP_PLATFORM_AMD__
+  hipMalloc((void**)ptr,size);
+#else
   cudaMalloc((void**)ptr,size);
+#endif
   return(size);
 }
 //<vs_vrres_end>
@@ -483,7 +545,11 @@ size_t Malloc(tmatrix4f** ptr,unsigned count){
 size_t HostAlloc(byte** ptr,unsigned count){
   const size_t size=sizeof(byte)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -493,7 +559,11 @@ size_t HostAlloc(byte** ptr,unsigned count){
 size_t HostAlloc(word** ptr,unsigned count){
   const size_t size=sizeof(word)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -503,7 +573,11 @@ size_t HostAlloc(word** ptr,unsigned count){
 size_t HostAlloc(unsigned** ptr,unsigned count){
   const size_t size=sizeof(unsigned)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocDefault_cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -513,7 +587,11 @@ size_t HostAlloc(unsigned** ptr,unsigned count){
 size_t HostAlloc(int** ptr,unsigned count){
   const size_t size=sizeof(int)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -523,7 +601,11 @@ size_t HostAlloc(int** ptr,unsigned count){
 size_t HostAlloc(int2** ptr,unsigned count){
   const size_t size=sizeof(int2)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -531,9 +613,13 @@ size_t HostAlloc(int2** ptr,unsigned count){
 /// Allocates pinned memory for float on CPU.
 //==============================================================================
 size_t HostAlloc(float** ptr,unsigned count){
-  const size_t size=sizeof(float)*count; 
+  const size_t size=sizeof(float)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -543,7 +629,11 @@ size_t HostAlloc(float** ptr,unsigned count){
 size_t HostAlloc(tfloat4** ptr,unsigned count){
   const size_t size=sizeof(tfloat4)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -553,7 +643,11 @@ size_t HostAlloc(tfloat4** ptr,unsigned count){
 size_t HostAlloc(double** ptr,unsigned count){
   const size_t size=sizeof(double)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 
@@ -563,7 +657,11 @@ size_t HostAlloc(double** ptr,unsigned count){
 size_t HostAlloc(tdouble2** ptr,unsigned count){
   const size_t size=sizeof(tdouble2)*count;
   //cudaHostAlloc((void**)ptr,size,cudaHostAllocPortable);
+#ifdef __HIP_PLATFORM_AMD__
+  hipHostMalloc((void**)ptr,size);
+#else
   cudaMallocHost((void**)ptr,size);
+#endif
   return(size);
 }
 

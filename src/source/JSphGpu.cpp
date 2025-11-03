@@ -81,6 +81,15 @@ JSphGpu::~JSphGpu(){
 //==============================================================================
 /// Throws exception related to a CUDA error from a static method.
 //==============================================================================
+#ifdef __HIP_PLATFORM_AMD__
+void JSphGpu::RunExceptioonCudaStatic(const std::string& srcfile,int srcline
+  ,const std::string& method
+  ,hipError_t cuerr,std::string msg)
+{
+  msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,hipGetErrorString(cuerr));
+  throw JException(srcfile,srcline,"JSphGpu",method,msg,"");
+}
+#else
 void JSphGpu::RunExceptioonCudaStatic(const std::string& srcfile,int srcline
   ,const std::string& method
   ,cudaError_t cuerr,std::string msg)
@@ -88,6 +97,7 @@ void JSphGpu::RunExceptioonCudaStatic(const std::string& srcfile,int srcline
   msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,cudaGetErrorString(cuerr));
   throw JException(srcfile,srcline,"JSphGpu",method,msg,"");
 }
+#endif
 
 //==============================================================================
 /// Checks CUDA error and throws exception from a static method.
@@ -95,13 +105,27 @@ void JSphGpu::RunExceptioonCudaStatic(const std::string& srcfile,int srcline
 void JSphGpu::CheckCudaErroorStatic(const std::string& srcfile,int srcline
   ,const std::string& method,std::string msg)
 {
+#ifdef __HIP_PLATFORM_AMD__
+  const hipError_t cuerr=hipGetLastError();
+  if(cuerr!=hipSuccess)RunExceptioonCudaStatic(srcfile,srcline,method,cuerr,msg);
+#else
   const cudaError_t cuerr=cudaGetLastError();
   if(cuerr!=cudaSuccess)RunExceptioonCudaStatic(srcfile,srcline,method,cuerr,msg);
+#endif
 }
 
 //==============================================================================
 /// Throws exception related to a CUDA error.
 //==============================================================================
+#ifdef __HIP_PLATFORM_AMD__
+void JSphGpu::RunExceptioonCuda(const std::string& srcfile,int srcline
+  ,const std::string& classname,const std::string& method
+  ,hipError_t cuerr,std::string msg)const
+{
+  msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,hipGetErrorString(cuerr));
+  throw JException(srcfile,srcline,classname,method,msg,"");
+}
+#else
 void JSphGpu::RunExceptioonCuda(const std::string& srcfile,int srcline
   ,const std::string& classname,const std::string& method
   ,cudaError_t cuerr,std::string msg)const
@@ -109,6 +133,7 @@ void JSphGpu::RunExceptioonCuda(const std::string& srcfile,int srcline
   msg=msg+fun::PrintStr(" (CUDA error %d (%s)).\n",cuerr,cudaGetErrorString(cuerr));
   throw JException(srcfile,srcline,classname,method,msg,"");
 }
+#endif
 
 //==============================================================================
 /// Checks CUDA error and throws exception.
@@ -118,8 +143,13 @@ void JSphGpu::CheckCudaErroor(const std::string& srcfile,int srcline
   ,const std::string& classname,const std::string& method
   ,std::string msg)const
 {
+#ifdef __HIP_PLATFORM_AMD__
+  hipError_t cuerr=hipGetLastError();
+  if(cuerr!=hipSuccess)RunExceptioonCuda(srcfile,srcline,classname,method,cuerr,msg);
+#else
   cudaError_t cuerr=cudaGetLastError();
   if(cuerr!=cudaSuccess)RunExceptioonCuda(srcfile,srcline,classname,method,cuerr,msg);
+#endif
 }
 
 //==============================================================================
@@ -257,6 +287,34 @@ void JSphGpu::AllocCpuMemoryFixed(){
 //==============================================================================
 void JSphGpu::FreeGpuMemoryFixed(){
   MemGpuFixed=0;
+#ifdef __HIP_PLATFORM_AMD__
+  //-Memory for moving and floating particles.
+  if(RidpMotg)  hipFree(RidpMotg);    RidpMotg=NULL;
+  //-Memory for floating bodies.
+  if(FtoMasspg) hipFree(FtoMasspg);   FtoMasspg=NULL;
+  if(FtoDatpg)  hipFree(FtoDatpg);    FtoDatpg=NULL;
+  if(FtoCenterg)hipFree(FtoCenterg);  FtoCenterg=NULL;
+  if(FtoAceg)   hipFree(FtoAceg);     FtoAceg=NULL;
+  //-Memory for DEM coefficients.
+  if(DemDatag)  hipFree(DemDatag);    DemDatag=NULL;
+  //<vs_flexstruc_ini>
+  if(FlexStrucDatag)    hipFree(FlexStrucDatag);     FlexStrucDatag=NULL;
+  if(FlexStrucRidpg)    hipFree(FlexStrucRidpg);     FlexStrucRidpg=NULL;
+  if(PosCell0g)         hipFree(PosCell0g);          PosCell0g=NULL;
+  if(NumPairsg)         hipFree(NumPairsg);          NumPairsg=NULL;
+  if(PairIdxBufferg)    hipFree(PairIdxBufferg);     PairIdxBufferg=NULL;
+  if(PairIdxg)          hipFree(PairIdxg);           PairIdxg=NULL;
+  if(KerCorrg)          hipFree(KerCorrg);           KerCorrg=NULL;
+  if(DefGradg)          hipFree(DefGradg);           DefGradg=NULL;
+  if(BoundNor0g)        hipFree(BoundNor0g);         BoundNor0g=NULL;
+  if(FlexStrucDtg)      hipFree(FlexStrucDtg);       FlexStrucDtg=NULL;
+  //<vs_flexstruc_end>
+  //-Frees streams for floating bodies.
+  for(unsigned c=0;c<MaxNStmFloatings;c++){
+    if(StmFloatings[c])hipStreamDestroy(StmFloatings[c]);
+    StmFloatings[c]=NULL;
+  }
+#else
   //-Memory for moving and floating particles.
   if(RidpMotg)  cudaFree(RidpMotg);    RidpMotg=NULL;
   //-Memory for floating bodies.
@@ -283,6 +341,7 @@ void JSphGpu::FreeGpuMemoryFixed(){
     if(StmFloatings[c])cudaStreamDestroy(StmFloatings[c]);
     StmFloatings[c]=NULL;
   }
+#endif
   NStmFloatings=0;
 }
 
@@ -305,7 +364,11 @@ void JSphGpu::AllocGpuMemoryFixed(){
   //-Allocates streams for floating bodies.
   NStmFloatings=(FtCount>1? min(MaxNStmFloatings,FtCount): 0);
   for(unsigned c=0;c<NStmFloatings;c++){
+#ifdef __HIP_PLATFORM_AMD__
+    hipStreamCreate(StmFloatings+c);
+#else
     cudaStreamCreate(StmFloatings+c);
+#endif
   }
   //-Allocates memory for DEM coefficients.
   if(UseDEM){
@@ -647,10 +710,14 @@ unsigned JSphGpu::ParticlesDataDown(unsigned n,unsigned pini,bool code
   typecode* codec  =Code_c->ptr();
 
   //-Obtain filter data on CPU memory. //<vs_outpaarts_ini>
-  byte* filter=NULL; 
+  byte* filter=NULL;
   if(filterg){
     filter=(byte*)AuxRho_c->ptr();
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(filter,filterg+pini,sizeof(byte)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(filter,filterg+pini,sizeof(byte)*n,cudaMemcpyDeviceToHost);
+#endif
   }//<vs_outpaarts_end>
   Check_CudaErroor("Failed copying data from GPU.");
   
@@ -696,7 +763,11 @@ int JSphGpu::SelecDevice(int gpuid){
   Log->Print("[GPU Hardware]");
   GpuInfo->SelectGpu(gpuid);
   GpuInfo->ShowSelectGpusInfo(Log);
+#ifdef __HIP_PLATFORM_AMD__
+  hipSetDevice(GpuInfo->GetGpuId());
+#else
   cudaSetDevice(GpuInfo->GetGpuId());
+#endif
   return(GpuInfo->GetGpuId());
 }
 
@@ -780,7 +851,11 @@ void JSphGpu::InitFloatingsGpu(float* ftomasspg,float4* ftodatag
   {
     float* massp=new float[FtCount];
     for(unsigned cf=0;cf<FtCount;cf++)massp[cf]=FtObjs[cf].massp;
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(ftomasspg,massp,sizeof(float)*FtCount,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(ftomasspg,massp,sizeof(float)*FtCount,cudaMemcpyHostToDevice);
+#endif
     delete[] massp; massp=NULL;
   }
   //-Copies floating values to GPU.
@@ -801,8 +876,13 @@ void JSphGpu::InitFloatingsGpu(float* ftomasspg,float4* ftodatag
       datp[cf].massp=fobj.massp;
       centerc[cf]=fobj.center;
     }
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(ftodatag,datp,sizeof(float4)*FtCount,hipMemcpyHostToDevice);
+    hipMemcpy(ftocenterg,centerc,sizeof(double3)*FtCount,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(ftodatag,datp,sizeof(float4)*FtCount,cudaMemcpyHostToDevice);
     cudaMemcpy(ftocenterg,centerc,sizeof(double3)*FtCount,cudaMemcpyHostToDevice);
+#endif
     delete[] datp;    datp=NULL;
     delete[] centerc; centerc=NULL;
   }
@@ -815,7 +895,11 @@ void JSphGpu::InitFloatingsGpu(float* ftomasspg,float4* ftodatag
       ddata[c].z=DemData[c].kfric;
       ddata[c].w=DemData[c].restitu;
     }
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(demdatag,ddata,sizeof(float4)*DemDataSize,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(demdatag,ddata,sizeof(float4)*DemDataSize,cudaMemcpyHostToDevice);
+#endif
     delete[] ddata; ddata=NULL;
   }
 }
@@ -904,7 +988,11 @@ void JSphGpu::PreInteraction_Forces(TpInterStep interstep){
   ViscDtMax=0;
   //<vs_flexstruc_ini>
   if(FlexStruc){
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemset(FlexStrucDtg,0,sizeof(float)*CaseNflexstruc);  //FlexStrucDtg[]=0
+#else
     cudaMemset(FlexStrucDtg,0,sizeof(float)*CaseNflexstruc);  //FlexStrucDtg[]=0
+#endif
     FlexStrucDtMax=0;
   }
   //<vs_flexstruc_end>
@@ -1340,8 +1428,13 @@ void JSphGpu::DgSaveVtkParticlesGpu(std::string filename,int numfile
   {
     tdouble2* pxy=new tdouble2[n];
     double* pz=new double[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(pxy,posxyg+pini,sizeof(double2)*n,hipMemcpyDeviceToHost);
+    hipMemcpy(pz,poszg+pini,sizeof(double)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(pxy,posxyg+pini,sizeof(double2)*n,cudaMemcpyDeviceToHost);
     cudaMemcpy(pz,poszg+pini,sizeof(double)*n,cudaMemcpyDeviceToHost);
+#endif
     for(unsigned p=0;p<n;p++)pos[p]=TFloat3(float(pxy[p].x),float(pxy[p].y),float(pz[p]));
     delete[] pxy;
     delete[] pz;
@@ -1350,14 +1443,22 @@ void JSphGpu::DgSaveVtkParticlesGpu(std::string filename,int numfile
   unsigned* idp=NULL;
   if(idpg){
     idp=new unsigned[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(idp,idpg+pini,sizeof(unsigned)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(idp,idpg+pini,sizeof(unsigned)*n,cudaMemcpyDeviceToHost);
+#endif
   }
   //-Loads dcel.
   tuint3* dcel=NULL;
   if(dcelg){
     dcel=new tuint3[n];
     unsigned* aux=new unsigned[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(aux,dcelg+pini,sizeof(unsigned)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(aux,dcelg+pini,sizeof(unsigned)*n,cudaMemcpyDeviceToHost);
+#endif
     for(unsigned p=0;p<n;p++)dcel[p]=TUint3(unsigned(DCEL_Cellx(cellcode,aux[p])),unsigned(DCEL_Celly(cellcode,aux[p])),unsigned(DCEL_Cellz(cellcode,aux[p])));
     delete[] aux;
   }
@@ -1368,7 +1469,11 @@ void JSphGpu::DgSaveVtkParticlesGpu(std::string filename,int numfile
     vel=new tfloat3[n];
     rho=new float[n];
     tfloat4* aux=new tfloat4[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(aux,velrhog+pini,sizeof(float4)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(aux,velrhog+pini,sizeof(float4)*n,cudaMemcpyDeviceToHost);
+#endif
     for(unsigned p=0;p<n;p++){ vel[p]=TFloat3(aux[p].x,aux[p].y,aux[p].z); rho[p]=aux[p].w; }
     delete[] aux;
   }
@@ -1379,7 +1484,11 @@ void JSphGpu::DgSaveVtkParticlesGpu(std::string filename,int numfile
     velm1=new tfloat3[n];
     rhom1=new float[n];
     tfloat4* aux=new tfloat4[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(aux,velrhom1g+pini,sizeof(float4)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(aux,velrhom1g+pini,sizeof(float4)*n,cudaMemcpyDeviceToHost);
+#endif
     for(unsigned p=0;p<n;p++){ velm1[p]=TFloat3(aux[p].x,aux[p].y,aux[p].z); rhom1[p]=aux[p].w; }
     delete[] aux;
   }
@@ -1387,14 +1496,22 @@ void JSphGpu::DgSaveVtkParticlesGpu(std::string filename,int numfile
   tfloat3* ace=NULL;
   if(aceg){
     ace=new tfloat3[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(ace,aceg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(ace,aceg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
+#endif
   }
   //-Loads type.
   byte* type=NULL;
   if(codeg){
     type=new byte[n];
     typecode* aux=new typecode[n];
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(aux,codeg+pini,sizeof(typecode)*n,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(aux,codeg+pini,sizeof(typecode)*n,cudaMemcpyDeviceToHost);
+#endif
     for(unsigned p=0;p<n;p++){ 
       const typecode cod=aux[p];
       byte tp=99;
@@ -1491,11 +1608,19 @@ void JSphGpu::DgSaveVtkParticlesGpu(std::string filename,int numfile
   if(velg)  vel=new tfloat3[n];
   if(rhog)  rho=new float[n];
   //-Copies data from GPU.
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(pos,posg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+  if(checkg)hipMemcpy(check,checkg+pini,sizeof(byte)*n,hipMemcpyDeviceToHost);
+  if(idpg)hipMemcpy(idp,idpg+pini,sizeof(unsigned)*n,hipMemcpyDeviceToHost);
+  if(velg)hipMemcpy(vel,velg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+  if(rhog)hipMemcpy(rho,rhog+pini,sizeof(float)*n,hipMemcpyDeviceToHost);
+#else
   cudaMemcpy(pos,posg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
   if(checkg)cudaMemcpy(check,checkg+pini,sizeof(byte)*n,cudaMemcpyDeviceToHost);
   if(idpg)cudaMemcpy(idp,idpg+pini,sizeof(unsigned)*n,cudaMemcpyDeviceToHost);
   if(velg)cudaMemcpy(vel,velg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
   if(rhog)cudaMemcpy(rho,rhog+pini,sizeof(float)*n,cudaMemcpyDeviceToHost);
+#endif
   //-Generates VTK file.
   DgSaveVtkParticlesCpu(filename,numfile,0,n,pos,check,idp,vel,rho);
   //-Frees memory.
@@ -1525,6 +1650,15 @@ void JSphGpu::DgSaveCsvParticlesGpu(std::string filename,int numfile
   tfloat3*  ace=NULL;   if(aceg)ace=new tfloat3[n];
   tfloat3*  vcorr=NULL; if(vcorrg)vcorr=new tfloat3[n];
   //-Copies data from GPU.
+#ifdef __HIP_PLATFORM_AMD__
+  if(idpg)hipMemcpy(idp,idpg+pini,sizeof(unsigned)*n,hipMemcpyDeviceToHost);
+  if(posg)hipMemcpy(pos,posg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+  if(velg)hipMemcpy(vel,velg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+  if(rhog)hipMemcpy(rho,rhog+pini,sizeof(float)*n,hipMemcpyDeviceToHost);
+  if(arg)hipMemcpy(ar,arg+pini,sizeof(float)*n,hipMemcpyDeviceToHost);
+  if(aceg)hipMemcpy(ace,aceg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+  if(vcorrg)hipMemcpy(vcorr,vcorrg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+#else
   if(idpg)cudaMemcpy(idp,idpg+pini,sizeof(unsigned)*n,cudaMemcpyDeviceToHost);
   if(posg)cudaMemcpy(pos,posg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
   if(velg)cudaMemcpy(vel,velg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
@@ -1532,6 +1666,7 @@ void JSphGpu::DgSaveCsvParticlesGpu(std::string filename,int numfile
   if(arg)cudaMemcpy(ar,arg+pini,sizeof(float)*n,cudaMemcpyDeviceToHost);
   if(aceg)cudaMemcpy(ace,aceg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
   if(vcorrg)cudaMemcpy(vcorr,vcorrg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
+#endif
   Check_CudaErroor("Failed copying data from GPU.");
   //-Generates CSV file.
   DgSaveCsvParticlesCpu(filename,numfile,0,n,head,pos,idp,vel,rho,ar,ace,vcorr);
@@ -1563,12 +1698,21 @@ void JSphGpu::DgSaveCsvParticlesGpu2(std::string filename,int numfile
   tfloat4*  pospres=NULL; if(pospresg)pospres=new tfloat4[n];
   tfloat4*  velrho=NULL;  if(velrhog)velrho=new tfloat4[n];
   //-Copies data from GPU.
+#ifdef __HIP_PLATFORM_AMD__
+  if(idpg)hipMemcpy(idp,idpg+pini,sizeof(unsigned)*n,hipMemcpyDeviceToHost);
+  if(posg)hipMemcpy(pos,posg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+  if(velg)hipMemcpy(vel,velg+pini,sizeof(float3)*n,hipMemcpyDeviceToHost);
+  if(rhog)hipMemcpy(rho,rhog+pini,sizeof(float)*n,hipMemcpyDeviceToHost);
+  if(pospresg)hipMemcpy(pospres,pospresg+pini,sizeof(float4)*n,hipMemcpyDeviceToHost);
+  if(velrhog)hipMemcpy(velrho,velrhog+pini,sizeof(float4)*n,hipMemcpyDeviceToHost);
+#else
   if(idpg)cudaMemcpy(idp,idpg+pini,sizeof(unsigned)*n,cudaMemcpyDeviceToHost);
   if(posg)cudaMemcpy(pos,posg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
   if(velg)cudaMemcpy(vel,velg+pini,sizeof(float3)*n,cudaMemcpyDeviceToHost);
   if(rhog)cudaMemcpy(rho,rhog+pini,sizeof(float)*n,cudaMemcpyDeviceToHost);
   if(pospresg)cudaMemcpy(pospres,pospresg+pini,sizeof(float4)*n,cudaMemcpyDeviceToHost);
   if(velrhog)cudaMemcpy(velrho,velrhog+pini,sizeof(float4)*n,cudaMemcpyDeviceToHost);
+#endif
   Check_CudaErroor("Failed copying data from GPU.");
   //-Generates CSV file.
   DgSaveCsvParticles2(filename,numfile,0,n,head,pos,idp,vel,rho,pospres,velrho);

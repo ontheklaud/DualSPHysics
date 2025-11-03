@@ -108,8 +108,12 @@ void JArraysGpuList::FreeMemory(){
     PointersAr[c]->Free();
   }
   //-Free GPU memory in Pointers[].
-  for(unsigned c=0;c<Count;c++)if(Pointers[c]){ 
+  for(unsigned c=0;c<Count;c++)if(Pointers[c]){
+#ifdef __HIP_PLATFORM_AMD__
+    hipFree(Pointers[c]); Pointers[c]=NULL;
+#else
     cudaFree(Pointers[c]); Pointers[c]=NULL;
+#endif
     Check_CudaErroor("Failed to free GPU memory.");
   }
   Count=0;
@@ -172,7 +176,11 @@ void JArraysGpuList::SetArrayCount(unsigned count){
           ,ValueSize,Count,count-1,ArraySize);
       #endif
       for(unsigned c=Count;c<count;c++){
+#ifdef __HIP_PLATFORM_AMD__
+        hipMalloc((void**)(Pointers+c),size_t(ValueSize)*ArraySize);
+#else
         cudaMalloc((void**)(Pointers+c),size_t(ValueSize)*ArraySize);
+#endif
         Check_CudaErroor("Failed to allocate GPU memory.");
         PointersAr[c]=NULL;
         PointersUnused[CountUnused]=c;
@@ -203,7 +211,11 @@ void JArraysGpuList::FreeUnusedArrays(){
         nused++;
       }
       else{//-Not in use.
+#ifdef __HIP_PLATFORM_AMD__
+        hipFree(Pointers[c]);
+#else
         cudaFree(Pointers[c]);
+#endif
         Pointers[c]=NULL;
         Check_CudaErroor("Failed to free GPU memory.");
       }
@@ -293,7 +305,11 @@ void JArraysGpuList::SaveDataArray(unsigned savesizedata){
       SvPointersAr[nsave]=PointersAr[c];
       SvDataCpu[nsave]=AllocCpuMemory(SizeDataCpu);
       if(SizeDataCpu){
+#ifdef __HIP_PLATFORM_AMD__
+        hipMemcpy(SvDataCpu[nsave],Pointers[c],size_t(ValueSize)*SizeDataCpu,hipMemcpyDeviceToHost);
+#else
         cudaMemcpy(SvDataCpu[nsave],Pointers[c],size_t(ValueSize)*SizeDataCpu,cudaMemcpyDeviceToHost);
+#endif
         Check_CudaErroor("Failed to save GPU data to CPU buffer.");
       }
       nsave++;
@@ -319,7 +335,11 @@ void JArraysGpuList::RestoreDataArray(unsigned newsize){
   for(unsigned cs=0;cs<CountDataCpu;cs++){
     SvPointersAr[cs]->Reserve();
     if(SizeDataCpu){
+#ifdef __HIP_PLATFORM_AMD__
+      hipMemcpy(SvPointersAr[cs]->Ptr,SvDataCpu[cs],size_t(ValueSize)*SizeDataCpu,hipMemcpyHostToDevice);
+#else
       cudaMemcpy(SvPointersAr[cs]->Ptr,SvDataCpu[cs],size_t(ValueSize)*SizeDataCpu,cudaMemcpyHostToDevice);
+#endif
       Check_CudaErroor("Failed to restore GPU data from CPU buffer.");
     }
   }
@@ -541,17 +561,29 @@ void JArrayGpu::PMemsetOffset(void* ptr_offset,unsigned offset,byte value
 {
   if(!Active())Run_Exceptioon("Invalid pointer.");
   if(size+offset>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemset(ptr_offset,value,Sizeof()*size);
+#else
   cudaMemset(ptr_offset,value,Sizeof()*size);
+#endif
 }
 //==============================================================================
 /// Run cudaMemsetAsync with Ptr using offset.
 //==============================================================================
 void JArrayGpu::PMemsetAsyncOffset(void* ptr_offset,unsigned offset,byte value
+#ifdef __HIP_PLATFORM_AMD__
+  ,size_t size,hipStream_t stm)
+#else
   ,size_t size,cudaStream_t stm)
+#endif
 {
   if(!Active())Run_Exceptioon("Invalid pointer.");
   if(size+offset>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemsetAsync(ptr_offset,value,Sizeof()*size,stm);
+#else
   cudaMemsetAsync(ptr_offset,value,Sizeof()*size,stm);
+#endif
 }
 
 //==============================================================================
@@ -562,7 +594,11 @@ void JArrayGpu::PCopyFrom(const JArrayGpu* src,size_t size){
     if(!Active() || src==NULL || !src->Active())Run_Exceptioon("Invalid arrays or pointers.");
     if(GetValueSize()!=src->GetValueSize())Run_Exceptioon("Size element does not match.");
     if(size>GetSize() || size>src->GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(Ptr,src->Ptr,Sizeof()*size,hipMemcpyDeviceToDevice);
+#else
     cudaMemcpy(Ptr,src->Ptr,Sizeof()*size,cudaMemcpyDeviceToDevice);
+#endif
   }
 }
 //==============================================================================
@@ -574,7 +610,11 @@ void JArrayGpu::PCopyFromOffset(void* dst_ptr,unsigned dst_offset
   if(!Active() || src==NULL || src_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(GetValueSize()!=src->GetValueSize())Run_Exceptioon("Size element does not match.");
   if(size+dst_offset>GetSize() || size+src_offset>src->GetSize())Run_Exceptioon("Invalid offset.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,src_ptr,Sizeof()*size,hipMemcpyDeviceToDevice);
+#else
   cudaMemcpy(dst_ptr,src_ptr,Sizeof()*size,cudaMemcpyDeviceToDevice);
+#endif
 }
 //==============================================================================
 /// Copy data from src pointer.
@@ -582,7 +622,11 @@ void JArrayGpu::PCopyFromOffset(void* dst_ptr,unsigned dst_offset
 void JArrayGpu::PCopyFromPointer(const void* src_ptr,size_t size){
   if(!Active() || src_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(size>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(Ptr,src_ptr,Sizeof()*size,hipMemcpyDeviceToDevice);
+#else
   cudaMemcpy(Ptr,src_ptr,Sizeof()*size,cudaMemcpyDeviceToDevice);
+#endif
 }
 //==============================================================================
 /// Copy data from src pointer using offsets.
@@ -592,7 +636,11 @@ void JArrayGpu::PCopyFromPointerOffset(void* dst_ptr,unsigned dst_offset
 {
   if(!Active() || src_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(size+dst_offset>GetSize())Run_Exceptioon("Invalid offset.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,src_ptr,Sizeof()*size,hipMemcpyDeviceToDevice);
+#else
   cudaMemcpy(dst_ptr,src_ptr,Sizeof()*size,cudaMemcpyDeviceToDevice);
+#endif
 }
 
 //==============================================================================
@@ -601,7 +649,11 @@ void JArrayGpu::PCopyFromPointerOffset(void* dst_ptr,unsigned dst_offset
 void JArrayGpu::PCopyTo(void* dst_ptr,size_t size)const{
   if(!Active() || dst_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(size>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,Ptr,Sizeof()*size,hipMemcpyDeviceToDevice);
+#else
   cudaMemcpy(dst_ptr,Ptr,Sizeof()*size,cudaMemcpyDeviceToDevice);
+#endif
 }
 //==============================================================================
 /// Copy data to dst pointer using offsets.
@@ -611,7 +663,11 @@ void JArrayGpu::PCopyToOffset(const void* src_ptr,unsigned src_offset
 {
   if(!Active() || dst_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(size+src_offset>GetSize())Run_Exceptioon("Invalid offset.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,src_ptr,Sizeof()*size,hipMemcpyDeviceToDevice);
+#else
   cudaMemcpy(dst_ptr,src_ptr,Sizeof()*size,cudaMemcpyDeviceToDevice);
+#endif
 }
 
 //==============================================================================
@@ -621,7 +677,11 @@ void JArrayGpu::PCopyToHost(JArrayCpu* dst,size_t size)const{
   if(!Active() || dst==NULL || !dst->Active())Run_Exceptioon("Invalid arrays or pointers.");
   if(GetValueSize()!=dst->GetValueSize())Run_Exceptioon("Size element does not match.");
   if(size>GetSize() || size>dst->GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst->ptrvoid(),Ptr,Sizeof()*size,hipMemcpyDeviceToHost);
+#else
   cudaMemcpy(dst->ptrvoid(),Ptr,Sizeof()*size,cudaMemcpyDeviceToHost);
+#endif
 }
 //==============================================================================
 /// Copy gpu data to cpu pointer (dst_ptr).
@@ -629,7 +689,11 @@ void JArrayGpu::PCopyToHost(JArrayCpu* dst,size_t size)const{
 void JArrayGpu::PCopyToHostPointer(void* dst_ptr,size_t size)const{
   if(!Active() || dst_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(size>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,Ptr,Sizeof()*size,hipMemcpyDeviceToHost);
+#else
   cudaMemcpy(dst_ptr,Ptr,Sizeof()*size,cudaMemcpyDeviceToHost);
+#endif
 }
 //==============================================================================
 /// Copy gpu data to cpu array (dst) using offset.
@@ -640,7 +704,11 @@ void JArrayGpu::PCopyToHostOffset(const void* src_ptr,unsigned src_offset
   if(!Active() || dst==NULL || !dst->Active())Run_Exceptioon("Invalid arrays or pointers.");
   if(GetValueSize()!=dst->GetValueSize())Run_Exceptioon("Size element does not match.");
   if(size+src_offset>GetSize() || size+dst_offset>dst->GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,src_ptr,Sizeof()*size,hipMemcpyDeviceToHost);
+#else
   cudaMemcpy(dst_ptr,src_ptr,Sizeof()*size,cudaMemcpyDeviceToHost);
+#endif
 }
 //==============================================================================
 /// Copy gpu data to cpu pointer (dst_ptr) using offset.
@@ -650,7 +718,11 @@ void JArrayGpu::PCopyToHostPointerOffset(const void* src_ptr,unsigned src_offset
 {
   if(!Active() || dst_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(size+src_offset>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,src_ptr,Sizeof()*size,hipMemcpyDeviceToHost);
+#else
   cudaMemcpy(dst_ptr,src_ptr,Sizeof()*size,cudaMemcpyDeviceToHost);
+#endif
 }
 
 //==============================================================================
@@ -660,7 +732,11 @@ void JArrayGpu::PCopyFromHost(const JArrayCpu* src,size_t size){
   if(!Active() || src==NULL || !src->Active())Run_Exceptioon("Invalid arrays or pointers.");
   if(GetValueSize()!=src->GetValueSize())Run_Exceptioon("Size element does not match.");
   if(size>GetSize() || size>src->GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(Ptr,src->cptrvoid(),Sizeof()*size,hipMemcpyHostToDevice);
+#else
   cudaMemcpy(Ptr,src->cptrvoid(),Sizeof()*size,cudaMemcpyHostToDevice);
+#endif
 }
 //==============================================================================
 /// Copy from cpu pointer (src_ptr) to GPU.
@@ -668,7 +744,11 @@ void JArrayGpu::PCopyFromHost(const JArrayCpu* src,size_t size){
 void JArrayGpu::PCopyFromHostPointer(const void* src_ptr,size_t size){
   if(!Active() || src_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(size>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(Ptr,src_ptr,Sizeof()*size,hipMemcpyHostToDevice);
+#else
   cudaMemcpy(Ptr,src_ptr,Sizeof()*size,cudaMemcpyHostToDevice);
+#endif
 }
 //==============================================================================
 /// Copy from cpu array (src) to GPU using offset.
@@ -679,7 +759,11 @@ void JArrayGpu::PCopyFromHostOffset(void* dst_ptr,unsigned dst_offset
   if(!Active() || src==NULL || !src->Active())Run_Exceptioon("Invalid arrays or pointers.");
   if(GetValueSize()!=src->GetValueSize())Run_Exceptioon("Size element does not match.");
   if(size+dst_offset>GetSize() || size+src_offset>src->GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,src_ptr,Sizeof()*size,hipMemcpyHostToDevice);
+#else
   cudaMemcpy(dst_ptr,src_ptr,Sizeof()*size,cudaMemcpyHostToDevice);
+#endif
 }
 //==============================================================================
 /// Copy gpu data to cpu pointer (dst_ptr) using offset.
@@ -689,7 +773,11 @@ void JArrayGpu::PCopyFromHostPointerOffset(void* dst_ptr,unsigned dst_offset
 {
   if(!Active() || src_ptr==NULL)Run_Exceptioon("Invalid arrays or pointers.");
   if(size+dst_offset>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(dst_ptr,src_ptr,Sizeof()*size,hipMemcpyHostToDevice);
+#else
   cudaMemcpy(dst_ptr,src_ptr,Sizeof()*size,cudaMemcpyHostToDevice);
+#endif
 }
 
 
@@ -747,15 +835,27 @@ void JArrayGpu::UnlockPtr(){
 void JArrayGpu::CuMemset(byte value,size_t size){
   if(!Active())Run_Exceptioon("Invalid pointer.");
   if(size>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemset(Ptr,value,Sizeof()*size);
+#else
   cudaMemset(Ptr,value,Sizeof()*size);
+#endif
 }
 //==============================================================================
 /// Run cudaMemsetAsync with Ptr.
 //==============================================================================
+#ifdef __HIP_PLATFORM_AMD__
+void JArrayGpu::CuMemsetAsync(byte value,size_t size,hipStream_t stm){
+#else
 void JArrayGpu::CuMemsetAsync(byte value,size_t size,cudaStream_t stm){
+#endif
   if(!Active())Run_Exceptioon("Invalid pointer.");
   if(size>GetSize())Run_Exceptioon("Invalid size.");
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemsetAsync(Ptr,value,Sizeof()*size,stm);
+#else
   cudaMemsetAsync(Ptr,value,Sizeof()*size,stm);
+#endif
 }
 
 
@@ -783,6 +883,10 @@ void JArrayGpu::DataDown(unsigned ndata){
   if(ndata>GetSize())Run_Exceptioon(fun::PrintStr("Array_%uB \'%s\' does not have the requested amount of data."
     ,ArraysList->ValueSize,Name.c_str()));
   DataAlloc();
+#ifdef __HIP_PLATFORM_AMD__
+  if(ndata)hipMemcpy(DataCpu,Ptr,size_t(GetValueSize())*ndata,hipMemcpyDeviceToHost);
+#else
   if(ndata)cudaMemcpy(DataCpu,Ptr,size_t(GetValueSize())*ndata,cudaMemcpyDeviceToHost);
+#endif
 }
 

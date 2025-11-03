@@ -221,7 +221,11 @@ protected:
   void ClearReserve();
   void PSwapPtr(JArrayGpu* ar);
   void PMemsetOffset(void* ptr_offset,unsigned offset,byte value,size_t size);
+#ifdef __HIP_PLATFORM_AMD__
+  void PMemsetAsyncOffset(void* ptr_offset,unsigned offset,byte value,size_t size,hipStream_t stm);
+#else
   void PMemsetAsyncOffset(void* ptr_offset,unsigned offset,byte value,size_t size,cudaStream_t stm);
+#endif
 
   void PCopyFrom(const JArrayGpu* src,size_t size);
   void PCopyFromOffset(void* dst_ptr,unsigned dst_offset,const JArrayGpu* src
@@ -270,9 +274,13 @@ public:
   bool IsLocked()const{ return(Locked); };
   void LockPtr();
   void UnlockPtr();
-  
+
   void CuMemset(byte value,size_t size);
+#ifdef __HIP_PLATFORM_AMD__
+  void CuMemsetAsync(byte value,size_t size,hipStream_t stm);
+#else
   void CuMemsetAsync(byte value,size_t size,cudaStream_t stm);
+#endif
 
   //-For data on CPU.
   void DataAlloc();
@@ -309,7 +317,11 @@ public:
       ,offset,value,size);
   }
   //----------------------------------------------------------------------------
+#ifdef __HIP_PLATFORM_AMD__
+  void CuMemsetAsyncOffset(unsigned offset,byte value,size_t size,hipStream_t stm){
+#else
   void CuMemsetAsyncOffset(unsigned offset,byte value,size_t size,cudaStream_t stm){
+#endif
     PMemsetAsyncOffset(
       (void*)(ptr()? ptr()+offset: NULL)
       ,offset,value,size,stm);

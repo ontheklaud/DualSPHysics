@@ -21,7 +21,11 @@
 #include "JRelaxZonesGpu.h"
 #ifdef _WITHGPU
   #include "JRelaxZone_ker.h"
-  #include <cuda_runtime_api.h>
+  #ifdef __HIP_PLATFORM_AMD__
+    #include <hip/hip_runtime.h>
+  #else
+    #include <cuda_runtime_api.h>
+  #endif
 #endif
 
 
@@ -85,11 +89,18 @@ void JRelaxZoneSpectrumGpu::FreeMemoryGpu(){
   MemGpuFixed=0;
   WavesOnGpu=false;
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    if(WaveKlg)   hipFree(WaveKlg);    WaveKlg=NULL;
+    if(WaveAmpg)  hipFree(WaveAmpg);   WaveAmpg=NULL;
+    if(WaveFangg) hipFree(WaveFangg);  WaveFangg=NULL;
+    if(WavePhaseg)hipFree(WavePhaseg); WavePhaseg=NULL;
+#else
     if(WaveKlg)   cudaFree(WaveKlg);    WaveKlg=NULL;
     if(WaveAmpg)  cudaFree(WaveAmpg);   WaveAmpg=NULL;
     if(WaveFangg) cudaFree(WaveFangg);  WaveFangg=NULL;
     if(WavePhaseg)cudaFree(WavePhaseg); WavePhaseg=NULL;
-  #endif 
+#endif
+  #endif
 }
 
 //==============================================================================
@@ -99,12 +110,19 @@ void JRelaxZoneSpectrumGpu::AllocMemoryGpu(unsigned wavecount){
   FreeMemoryGpu();
   #ifdef _WITHGPU
     const size_t m=sizeof(double)*wavecount;
+#ifdef __HIP_PLATFORM_AMD__
+    hipMalloc((void**)&WaveKlg,m);
+    hipMalloc((void**)&WaveAmpg,m);
+    hipMalloc((void**)&WaveFangg,m);
+    hipMalloc((void**)&WavePhaseg,m);
+#else
     cudaMalloc((void**)&WaveKlg,m);
     cudaMalloc((void**)&WaveAmpg,m);
     cudaMalloc((void**)&WaveFangg,m);
     cudaMalloc((void**)&WavePhaseg,m);
+#endif
     MemGpuFixed=m*4;
-  #endif 
+  #endif
 }
 
 //==============================================================================
@@ -115,12 +133,19 @@ void JRelaxZoneSpectrumGpu::PrepareWaveDataGpu(unsigned wavecount
 {
   AllocMemoryGpu(wavecount);
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(WaveKlg   ,kl   ,sizeof(double)*wavecount,hipMemcpyHostToDevice);
+    hipMemcpy(WaveAmpg  ,amp  ,sizeof(double)*wavecount,hipMemcpyHostToDevice);
+    hipMemcpy(WaveFangg ,fang ,sizeof(double)*wavecount,hipMemcpyHostToDevice);
+    hipMemcpy(WavePhaseg,phase,sizeof(double)*wavecount,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(WaveKlg   ,kl   ,sizeof(double)*wavecount,cudaMemcpyHostToDevice);
     cudaMemcpy(WaveAmpg  ,amp  ,sizeof(double)*wavecount,cudaMemcpyHostToDevice);
     cudaMemcpy(WaveFangg ,fang ,sizeof(double)*wavecount,cudaMemcpyHostToDevice);
     cudaMemcpy(WavePhaseg,phase,sizeof(double)*wavecount,cudaMemcpyHostToDevice);
+#endif
     WavesOnGpu=true;
-  #endif 
+  #endif
 }
 
 //==============================================================================
@@ -173,9 +198,14 @@ void JRelaxZonesExternalGpu::FreeMemoryGpu(){
   MemGpuFixed=0;
   GpuReady=false;
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    if(VelXg)hipFree(VelXg); VelXg=NULL;
+    if(VelZg)hipFree(VelZg); VelZg=NULL;
+#else
     if(VelXg)cudaFree(VelXg); VelXg=NULL;
     if(VelZg)cudaFree(VelZg); VelZg=NULL;
-#endif 
+#endif
+#endif
 }
 
 //==============================================================================
@@ -185,11 +215,16 @@ void JRelaxZonesExternalGpu::AllocMemoryGpu(unsigned size,bool loadvelz){
   FreeMemoryGpu();
   #ifdef _WITHGPU
     const size_t m=sizeof(double)*size;
+#ifdef __HIP_PLATFORM_AMD__
+    hipMalloc((void**)&VelXg,m);
+    if(loadvelz)hipMalloc((void**)&VelZg,m);
+#else
     cudaMalloc((void**)&VelXg,m);
     if(loadvelz)cudaMalloc((void**)&VelZg,m);
+#endif
     GpuReady=true;
     MemGpuFixed=m*2;
-  #endif 
+  #endif
 }
 
 //==============================================================================
@@ -200,9 +235,14 @@ void JRelaxZonesExternalGpu::PrepareDataGpu(unsigned size,bool loadvelz
 {
   if(!GpuReady)AllocMemoryGpu(size,loadvelz);
   #ifdef _WITHGPU
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(VelXg,velx,sizeof(double)*size,hipMemcpyHostToDevice);
+    if(loadvelz)hipMemcpy(VelZg,velz,sizeof(double)*size,hipMemcpyHostToDevice);
+#else
     cudaMemcpy(VelXg,velx,sizeof(double)*size,cudaMemcpyHostToDevice);
     if(loadvelz)cudaMemcpy(VelZg,velz,sizeof(double)*size,cudaMemcpyHostToDevice);
-  #endif 
+#endif
+  #endif
 }
 
 //==============================================================================

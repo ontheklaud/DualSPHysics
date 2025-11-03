@@ -70,26 +70,19 @@ void JWaveSpectrumGpu::AllocMemoryGpu(unsigned sizewavecoefs){
     size_t m=sizeof(double4)*sizewavecoefs;
 #ifdef __HIP_PLATFORM_AMD__
     hipMalloc((void**)&Order2CoefsEtag,m);     MemGpuFixed+=m;
-#else
-    cudaMalloc((void**)&Order2CoefsEtag,m);     MemGpuFixed+=m;
-#endif
     m=sizeof(double)*sizewavecoefs;
-#ifdef __HIP_PLATFORM_AMD__
     hipMalloc((void**)&Order2CoefsDnmg,m);     MemGpuFixed+=m;
-#else
-    cudaMalloc((void**)&Order2CoefsDnmg,m);     MemGpuFixed+=m;
-#endif
     m=sizeof(double2)*sizewavecoefs;
-#ifdef __HIP_PLATFORM_AMD__
     hipMalloc((void**)&Order2CoefsPosg,m);     MemGpuFixed+=m;
-#else
-    cudaMalloc((void**)&Order2CoefsPosg,m);     MemGpuFixed+=m;
-#endif
     m=sizeof(double)*cuwave2::GetSizeAux(sizewavecoefs);
-    //m=sizeof(double)*SizeWaveCoefs*2+512;
-#ifdef __HIP_PLATFORM_AMD__
     hipMalloc((void**)&Order2Auxg,m);          MemGpuFixed+=m;
 #else
+    cudaMalloc((void**)&Order2CoefsEtag,m);     MemGpuFixed+=m;
+    m=sizeof(double)*sizewavecoefs;
+    cudaMalloc((void**)&Order2CoefsDnmg,m);     MemGpuFixed+=m;
+    m=sizeof(double2)*sizewavecoefs;
+    cudaMalloc((void**)&Order2CoefsPosg,m);     MemGpuFixed+=m;
+    m=sizeof(double)*cuwave2::GetSizeAux(sizewavecoefs);
     cudaMalloc((void**)&Order2Auxg,m);          MemGpuFixed+=m;
 #endif
   #endif
