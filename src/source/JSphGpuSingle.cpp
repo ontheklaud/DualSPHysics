@@ -652,7 +652,11 @@ void JSphGpuSingle::Interaction_Forces(TpInterStep interstep){
   //-Add Delta-SPH correction to Ar_g[].
   if(AG_CPTR(Delta_g))cusph::AddDelta(Np-Npb,Delta_g->cptr()+Npb,Ar_g->ptr()+Npb);
 
+#ifdef __HIP_PLATFORM_AMD__
+  hipDeviceSynchronize();
+#else
   cudaDeviceSynchronize();
+#endif
   Check_CudaErroor("Failed while executing kernels of interaction.");
 
   //-Calculates maximum value of ViscDt.
@@ -834,7 +838,11 @@ void JSphGpuSingle::RunFloating(double dt,bool predictor){
     //-Computes sum of linear and angular acceleration of floating particles.
     cusph::FtPartsSumAce(PeriActive!=0,FtCount,FtoDatpg,FtoCenterg,RidpMotg
       ,Posxy_g->cptr(),Posz_g->cptr(),Ace_g->cptr(),FtoAceg);
+#ifdef __HIP_PLATFORM_AMD__
+    hipMemcpy(Fto_AceLinAng,FtoAceg,sizeof(tfloat6)*FtCount,hipMemcpyDeviceToHost);
+#else
     cudaMemcpy(Fto_AceLinAng,FtoAceg,sizeof(tfloat6)*FtCount,cudaMemcpyDeviceToHost);
+#endif
     //-Compute new linear and angular acceleration, velocity and center to update floatings.
     FtComputeAceVel(dt,predictor,saveftvalues,Fto_AceLinAng,Fto_VelLinAng,Fto_Center);
   }
@@ -879,14 +887,22 @@ void JSphGpuSingle::RunFloating(double dt,bool predictor){
         ,Dcell_g->ptr(),Code_g->ptr(),AG_PTR(BoundNor_g)
         ,AG_PTR(MotionVel_g),AG_PTR(MotionAce_g),stm);
     }
+#ifdef __HIP_PLATFORM_AMD__
+    if(NStmFloatings)hipDeviceSynchronize();
+#else
     if(NStmFloatings)cudaDeviceSynchronize();
+#endif
 
     //-Update floating data (FtObjs[]) for next step.
     if(!predictor){
       FtUpdateFloatings(dt,Fto_VelLinAng,Fto_Center);
       //-Update center in GPU memory (FtoCenterg[]).
       for(unsigned cf=0;cf<FtCount;cf++)FtoCenterc[cf]=FtObjs[cf].center;
+#ifdef __HIP_PLATFORM_AMD__
+      hipMemcpy(FtoCenterg,FtoCenterc,sizeof(tdouble3)*FtCount,hipMemcpyHostToDevice);
+#else
       cudaMemcpy(FtoCenterg,FtoCenterc,sizeof(tdouble3)*FtCount,cudaMemcpyHostToDevice);
+#endif
     }
   }
 
@@ -1169,7 +1185,11 @@ void JSphGpuSingle::FlexStrucInit(){
   Log->Print("\nInitialising Flexible Structures...");
   //-Allocate array.
   size_t m=0;
+#ifdef __HIP_PLATFORM_AMD__
+  m=sizeof(StFlexStrucData)*FlexStrucCount; hipMalloc((void**)&FlexStrucDatag,m); MemGpuFixed+=m;
+#else
   m=sizeof(StFlexStrucData)*FlexStrucCount; cudaMalloc((void**)&FlexStrucDatag,m); MemGpuFixed+=m;
+#endif
   //-Get flexible structure data for each body and copy to GPU
   vector<StFlexStrucData> flexstrucdata(FlexStrucCount);
   for(unsigned c=0;c<FlexStrucCount;c++){
@@ -1183,6 +1203,15 @@ void JSphGpuSingle::FlexStrucInit(){
     flexstrucdata[c].hgfactor=FlexStruc->GetBody(c)->GetHgFactor();
     flexstrucdata[c].cmat=FlexStruc->GetBody(c)->GetConstitMatrix();
   }
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(FlexStrucDatag,flexstrucdata.data(),sizeof(StFlexStrucData)*FlexStrucCount,hipMemcpyHostToDevice);
+  //-Configure code for flexible structures.
+  hipMemcpy(Code_c->ptr(),Code_g->ptr(),sizeof(typecode)*Npb,hipMemcpyDeviceToHost);
+  FlexStruc->ConfigCode(Npb,Code_c->ptr());
+  hipMemcpy(Code_g->ptr(),Code_c->ptr(),sizeof(typecode)*Npb,hipMemcpyHostToDevice);
+  cusph::SetFlexStrucClampCodes(Npb,PosCell_g->cptr(),FlexStrucDatag,Code_g->ptr());
+  hipMemcpy(Code_c->ptr(),Code_g->cptr(),sizeof(typecode)*Npb,hipMemcpyDeviceToHost);
+#else
   cudaMemcpy(FlexStrucDatag,flexstrucdata.data(),sizeof(StFlexStrucData)*FlexStrucCount,cudaMemcpyHostToDevice);
   //-Configure code for flexible structures.
   cudaMemcpy(Code_c->ptr(),Code_g->ptr(),sizeof(typecode)*Npb,cudaMemcpyDeviceToHost);
@@ -1190,9 +1219,20 @@ void JSphGpuSingle::FlexStrucInit(){
   cudaMemcpy(Code_g->ptr(),Code_c->ptr(),sizeof(typecode)*Npb,cudaMemcpyHostToDevice);
   cusph::SetFlexStrucClampCodes(Npb,PosCell_g->cptr(),FlexStrucDatag,Code_g->ptr());
   cudaMemcpy(Code_c->ptr(),Code_g->cptr(),sizeof(typecode)*Npb,cudaMemcpyDeviceToHost);
+#endif
   //-Count number of flexible structure particles.
   CaseNflexstruc=cusph::CountFlexStrucParts(Npb,Code_g->cptr());
   //-Allocate arrays.
+#ifdef __HIP_PLATFORM_AMD__
+  m=sizeof(unsigned)*CaseNflexstruc;              hipMalloc((void**)&FlexStrucRidpg,   m);  MemGpuFixed+=m;
+  m=sizeof(float4)*CaseNflexstruc;                hipMalloc((void**)&PosCell0g,        m);  MemGpuFixed+=m;
+  m=sizeof(unsigned)*CaseNflexstruc;              hipMalloc((void**)&NumPairsg,        m);  MemGpuFixed+=m;
+  m=sizeof(unsigned*)*CaseNflexstruc;             hipMalloc((void**)&PairIdxg,         m);  MemGpuFixed+=m;
+  m=sizeof(tmatrix3f)*CaseNflexstruc;             hipMalloc((void**)&KerCorrg,         m);  MemGpuFixed+=m;
+  m=sizeof(tmatrix3f)*CaseNflexstruc;             hipMalloc((void**)&DefGradg,         m);  MemGpuFixed+=m;
+  if(UseNormals)m=sizeof(float3)*CaseNflexstruc;  hipMalloc((void**)&BoundNor0g,       m);  MemGpuFixed+=m;
+  m=sizeof(float)*CaseNflexstruc;                 hipMalloc((void**)&FlexStrucDtg,     m);  MemGpuFixed+=m;
+#else
   m=sizeof(unsigned)*CaseNflexstruc;              cudaMalloc((void**)&FlexStrucRidpg,   m);  MemGpuFixed+=m;
   m=sizeof(float4)*CaseNflexstruc;                cudaMalloc((void**)&PosCell0g,        m);  MemGpuFixed+=m;
   m=sizeof(unsigned)*CaseNflexstruc;              cudaMalloc((void**)&NumPairsg,        m);  MemGpuFixed+=m;
@@ -1201,6 +1241,7 @@ void JSphGpuSingle::FlexStrucInit(){
   m=sizeof(tmatrix3f)*CaseNflexstruc;             cudaMalloc((void**)&DefGradg,         m);  MemGpuFixed+=m;
   if(UseNormals)m=sizeof(float3)*CaseNflexstruc;  cudaMalloc((void**)&BoundNor0g,       m);  MemGpuFixed+=m;
   m=sizeof(float)*CaseNflexstruc;                 cudaMalloc((void**)&FlexStrucDtg,     m);  MemGpuFixed+=m;
+#endif
   //-Calculate array for indexing into flexible structure particles.
   cusph::CalcFlexStrucRidp(Npb,Code_g->cptr(),FlexStrucRidpg);
   //-Copy current position and normals into initial position and normals.
@@ -1210,16 +1251,26 @@ void JSphGpuSingle::FlexStrucInit(){
   const unsigned numpairstot=cusph::CountFlexStrucPairs(CaseNflexstruc,PosCell0g,NumPairsg);
   //-Download number of pairs for each particle.
   vector<unsigned> numpairs(CaseNflexstruc);
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(numpairs.data(),NumPairsg,sizeof(unsigned)*CaseNflexstruc,hipMemcpyDeviceToHost);
+  //-Allocate memory for raw buffer for storing pair indices and set the pointers to the indices.
+  m=sizeof(unsigned)*numpairstot; hipMalloc((void**)&PairIdxBufferg,m);  MemGpuFixed+=m;
+#else
   cudaMemcpy(numpairs.data(),NumPairsg,sizeof(unsigned)*CaseNflexstruc,cudaMemcpyDeviceToHost);
   //-Allocate memory for raw buffer for storing pair indices and set the pointers to the indices.
   m=sizeof(unsigned)*numpairstot; cudaMalloc((void**)&PairIdxBufferg,m);  MemGpuFixed+=m;
+#endif
   unsigned* offset=PairIdxBufferg;
   vector<unsigned*> pairidx(CaseNflexstruc);
   for(unsigned p=0;p<CaseNflexstruc;p++){
     pairidx[p]=offset;
     offset+=numpairs[p];
   }
+#ifdef __HIP_PLATFORM_AMD__
+  hipMemcpy(PairIdxg,pairidx.data(),sizeof(unsigned*)*CaseNflexstruc,hipMemcpyHostToDevice);
+#else
   cudaMemcpy(PairIdxg,pairidx.data(),sizeof(unsigned*)*CaseNflexstruc,cudaMemcpyHostToDevice);
+#endif
   //-Set the indices for each particle pair.
   cusph::SetFlexStrucPairs(CaseNflexstruc,PosCell0g,PairIdxg);
   //-Interaction parameters.

@@ -145,12 +145,21 @@ void JMeshTDatasDsVel::ResetGpu(){
 /// Frees memory on GPU.
 //==============================================================================
 void JMeshTDatasDsVel::FreeMemoryGpu(){
+#ifdef __HIP_PLATFORM_AMD__
+   if(Vel1Data1g)hipFree(Vel1Data1g);  Vel1Data1g=NULL;
+   if(Vel1Data2g)hipFree(Vel1Data2g);  Vel1Data2g=NULL;
+   if(Vel1DataTg)hipFree(Vel1DataTg);  Vel1DataTg=NULL;
+   if(Vel3Data1g)hipFree(Vel3Data1g);  Vel3Data1g=NULL;
+   if(Vel3Data2g)hipFree(Vel3Data2g);  Vel3Data2g=NULL;
+   if(Vel3DataTg)hipFree(Vel3DataTg);  Vel3DataTg=NULL;
+#else
    if(Vel1Data1g)cudaFree(Vel1Data1g);  Vel1Data1g=NULL;
    if(Vel1Data2g)cudaFree(Vel1Data2g);  Vel1Data2g=NULL;
    if(Vel1DataTg)cudaFree(Vel1DataTg);  Vel1DataTg=NULL;
    if(Vel3Data1g)cudaFree(Vel3Data1g);  Vel3Data1g=NULL;
    if(Vel3Data2g)cudaFree(Vel3Data2g);  Vel3Data2g=NULL;
    if(Vel3DataTg)cudaFree(Vel3DataTg);  Vel3DataTg=NULL;
+#endif
 }
 //==============================================================================
 /// Allocates memory on GPU.
@@ -189,31 +198,56 @@ void JMeshTDatasDsVel::IntpComputeTimeGpu(double timestep){
       }
       if(GpuCtime1!=Position){
         const void* data=Datas[Position]->GetArrays()->GetArrayCte(0).ptr;
+#ifdef __HIP_PLATFORM_AMD__
+        if(flt1)hipMemcpy(Vel1Data1g,data,size,hipMemcpyHostToDevice);
+        else    hipMemcpy(Vel3Data1g,data,size,hipMemcpyHostToDevice);
+#else
         if(flt1)cudaMemcpy(Vel1Data1g,data,size,cudaMemcpyHostToDevice);
         else    cudaMemcpy(Vel3Data1g,data,size,cudaMemcpyHostToDevice);
+#endif
         GpuCtime1=Position;
       }
       if(GpuCtime2!=PositionNext){
         if(GpuCtime2==GpuCtime1){
+#ifdef __HIP_PLATFORM_AMD__
+          if(flt1)hipMemcpy(Vel1Data2g,Vel1Data1g,size,hipMemcpyDeviceToDevice);
+          else    hipMemcpy(Vel3Data2g,Vel3Data1g,size,hipMemcpyDeviceToDevice);
+#else
           if(flt1)cudaMemcpy(Vel1Data2g,Vel1Data1g,size,cudaMemcpyDeviceToDevice);
           else    cudaMemcpy(Vel3Data2g,Vel3Data1g,size,cudaMemcpyDeviceToDevice);
+#endif
         }
         else{
           const void* data=Datas[PositionNext]->GetArrays()->GetArrayCte(0).ptr;
+#ifdef __HIP_PLATFORM_AMD__
+          if(flt1)hipMemcpy(Vel1Data2g,data,size,hipMemcpyHostToDevice);
+          else    hipMemcpy(Vel3Data2g,data,size,hipMemcpyHostToDevice);
+#else
           if(flt1)cudaMemcpy(Vel1Data2g,data,size,cudaMemcpyHostToDevice);
           else    cudaMemcpy(Vel3Data2g,data,size,cudaMemcpyHostToDevice);
+#endif
         }
         GpuCtime2=PositionNext;
       }
     }
     //-Interpolate data on timestep.
     if(Position==PositionNext || TimeFactor==0){
+#ifdef __HIP_PLATFORM_AMD__
+      if(flt1)hipMemcpy(Vel1DataTg,Vel1Data1g,size,hipMemcpyDeviceToDevice);
+      else    hipMemcpy(Vel3DataTg,Vel3Data1g,size,hipMemcpyDeviceToDevice);
+#else
       if(flt1)cudaMemcpy(Vel1DataTg,Vel1Data1g,size,cudaMemcpyDeviceToDevice);
       else    cudaMemcpy(Vel3DataTg,Vel3Data1g,size,cudaMemcpyDeviceToDevice);
+#endif
     }
     else if(TimeFactor>=1){
+#ifdef __HIP_PLATFORM_AMD__
+      if(flt1)hipMemcpy(Vel1DataTg,Vel1Data2g,size,hipMemcpyDeviceToDevice);
+      else    hipMemcpy(Vel3DataTg,Vel3Data2g,size,hipMemcpyDeviceToDevice);
+#else
       if(flt1)cudaMemcpy(Vel1DataTg,Vel1Data2g,size,cudaMemcpyDeviceToDevice);
       else    cudaMemcpy(Vel3DataTg,Vel3Data2g,size,cudaMemcpyDeviceToDevice);
+#endif
     }
     else{
       if(flt1)cusphinout::InOutInterpolateDataTime(FrSize,tfactor,Vel1Data1g,Vel1Data2g,Vel1DataTg);

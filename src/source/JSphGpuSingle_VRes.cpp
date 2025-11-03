@@ -217,8 +217,13 @@ void JSphGpuSingle_VRes::ComputeStepBuffer(double dt,std::vector<JMatrix4d> mat,
       ,vresdata.ptposxy,vresdata.ptposz,vresdata.normals,vresdata.mass);
 		
     int *newpart=NULL;
+#ifdef __HIP_PLATFORM_AMD__
+		hipMalloc((void**)&newpart, sizeof(int)*(vresdata.ntot+1));
+		hipMemset(newpart,0,vresdata.ntot*sizeof(int));
+#else
 		cudaMalloc((void**)&newpart, sizeof(int)*(vresdata.ntot+1));
 		cudaMemset(newpart,0,vresdata.ntot*sizeof(int));
+#endif
 
 
     unsigned newnp = VRes->NewPartListCreate(newpart,i);
@@ -243,8 +248,12 @@ void JSphGpuSingle_VRes::ComputeStepBuffer(double dt,std::vector<JMatrix4d> mat,
       Np+=newnp; 
       TotalNp+=newnp;
       IdMax=unsigned(TotalNp-1);
-    }      
-    cudaFree(newpart);  newpart=NULL; 
+    }
+#ifdef __HIP_PLATFORM_AMD__
+    hipFree(newpart);  newpart=NULL;
+#else
+    cudaFree(newpart);  newpart=NULL;
+#endif
 	}
 }
 
