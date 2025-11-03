@@ -11,9 +11,9 @@ PROJECT(DualSPHysics LANGUAGES CXX C)
 #------------------------------------------------------------------
 option(ENABLE_CHRONO "Enable the Chrono Engine library" ON)
 option(ENABLE_WAVEGEN "Enable the WaveGen library" ON)
-option(ENABLE_MOORDYNPLUS "Enable the MoorDynPlus library" ON)
-option(ENABLE_CUDA "Enable the use of CUDA for compilation" ON)
-option(ENABLE_HIP "Enable the use of HIP for AMD GPU compilation" OFF)
+option(ENABLE_MOORDYNPLUS "Enable the MoorDynPlus library" OFF)
+option(ENABLE_CUDA "Enable the use of CUDA for compilation" OFF)
+option(ENABLE_HIP "Enable the use of HIP for AMD GPU compilation" ON)
 
 #------------------------------------------------------------------
 # Source files
